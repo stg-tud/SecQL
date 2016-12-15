@@ -1,32 +1,33 @@
 package idb.algebra.remote
 
-import idb.query.colors.{ClassColor, Color}
+import idb.query.taint.{BaseTaint, Taint}
 import org.junit.Assert._
 import org.junit.Test
 
 /**
  * @author Mirko Köhler
  */
-class TestColors {
+class TestTaints {
 
-	val c1 = Color("red")
-	val c2 = Color("green")
-	val c3 = Color("blue")
+	val c1 = Taint("red")
+	val c2 = Taint("green")
+	val c3 = Taint("blue")
 
 
-	val f1 = Color("name" -> c1, "pin" -> c3)
-	val f2 = Color("name" -> c1, "pin" -> c2)
+	val f1 = Taint("name" -> c1, "pin" -> c3)
+	val f2 = Taint("name" -> c1, "pin" -> c2)
 
 
 	@Test
-	def testTupleColor(): Unit = {
-		assertEquals(Color("_1" -> c1, "_2" -> c2), Color.tupled(c1, c2))
+	def testTupleTaint
+	(): Unit = {
+		assertEquals(Taint("_1" -> c1, "_2" -> c2), Taint.tupled(c1, c2))
 	}
 
 	@Test
-	def testColorUnion() : Unit = {
-		assertEquals(Color("name" -> c1, "pin" -> Color.group("green", "blue")), Color.union(f1, f2))
-		assertEquals(Color("name" -> c1, "pin" -> Color.group("red", "blue")), Color.union(f1, c1))
+	def testTaintUnion() : Unit = {
+		assertEquals(Taint("name" -> c1, "pin" -> Taint.group("green", "blue")), Taint.union(f1, f2))
+		assertEquals(Taint("name" -> c1, "pin" -> Taint.group("red", "blue")), Taint.union(f1, c1))
 	}
 
 /*	val d1 = SingleColor("red")

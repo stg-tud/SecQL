@@ -1,4 +1,4 @@
-package idb.query.colors
+package idb.query.taint
 
 /**
  * @author Mirko Köhler
