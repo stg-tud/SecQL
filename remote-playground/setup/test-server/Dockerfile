@@ -1,4 +1,4 @@
-FROM i3ql-lms:8u181-jdk
+FROM dsoko2/i3ql-lms:0.3.0-8u181-jdk
 
 # Install SSH and RSYNC
 RUN apt-get update && apt-get install -y openssh-server rsync git-core
