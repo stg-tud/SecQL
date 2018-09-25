@@ -1,7 +1,7 @@
 FROM openjdk:8u181-jdk
 
 # Install SSH
-RUN apt-get update && apt-get install -y openssh-server
+RUN apt-get update && apt-get install -y openssh-server rsync
 RUN mkdir /var/run/sshd
 
 # Configure login for the identity of the server container
