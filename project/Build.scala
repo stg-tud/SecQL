@@ -1,4 +1,6 @@
 import sbt._
+import com.typesafe.sbt.SbtMultiJvm.multiJvmSettings
+import com.typesafe.sbt.SbtMultiJvm.MultiJvmKeys.MultiJvm
 
 object sae extends Build {
 
@@ -29,6 +31,8 @@ object sae extends Build {
    */
   lazy val remotePlayground = Project(id = "remote-playground", base = file("remote-playground"))
     .dependsOn(syntax % "compile;test").dependsOn(runtime % "compile;test").dependsOn(schemaExamples % "compile;test").dependsOn(intermediateRepresentation % "compile;test")
+          .settings(multiJvmSettings: _*)
+          .configs (MultiJvm)
 
   /*
     Project Test Data
