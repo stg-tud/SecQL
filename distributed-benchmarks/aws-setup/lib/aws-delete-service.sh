@@ -39,7 +39,7 @@ else
 fi
 
 echo ">> Getting namespace id"
-NAMESPACE_ID=$(../lib/aws-sd-get-namespaceid.sh $3)
+NAMESPACE_ID=$(aws-sd-get-namespaceid.sh $3)
 if [ -z $NAMESPACE_ID ]; then
 	echo ">> Namespace seems not to exist, skipping servicediscovery deregistraion"
 else

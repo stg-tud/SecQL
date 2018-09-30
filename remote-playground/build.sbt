@@ -10,7 +10,7 @@ parallelExecution in Test := false
 logBuffered in Test := false
 
 libraryDependencies ++= Seq(
-	"EPFL" %% "lms" % "latest.integration",
+	"EPFL" %% "lms" % lmsVersion,
 	"com.typesafe.akka" %% "akka-multi-node-testkit" % akkaVersion
 )
 

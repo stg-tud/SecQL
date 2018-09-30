@@ -4,7 +4,7 @@ import com.typesafe.sbt.SbtMultiJvm.MultiJvmKeys.MultiJvm
 
 object sae extends Build {
 
-  /*
+    /*
     Project IDB
   */
 	lazy val idb = Project(id = "idb", base = file("idb"))
@@ -12,7 +12,7 @@ object sae extends Build {
 
 	lazy val runtime = Project(id = "idb-runtime", base = file("idb/runtime"))
 
-	lazy val intermediateRepresentation = Project(id = "idb-intermediate-representation", base = file("idb/intermediate-representation"))
+    lazy val intermediateRepresentation = Project(id = "idb-intermediate-representation", base = file("idb/intermediate-representation"))
 
 	lazy val schemaExamples = Project(id = "idb-schema-examples", base = file("idb/schema-examples"))
 
@@ -27,20 +27,48 @@ object sae extends Build {
 		
 
   /*
-    Project Remote playground
-   */
-  lazy val remotePlayground = Project(id = "remote-playground", base = file("remote-playground"))
-    .dependsOn(syntax % "compile;test").dependsOn(runtime % "compile;test").dependsOn(schemaExamples % "compile;test").dependsOn(intermediateRepresentation % "compile;test")
-          .settings(multiJvmSettings: _*)
+      Project Remote playground
+     */
+    lazy val remotePlayground = Project(id = "remote-playground", base = file("remote-playground"))
+            .dependsOn(syntax % "compile;test").dependsOn(runtime % "compile;test").dependsOn(schemaExamples % "compile;test").dependsOn(intermediateRepresentation % "compile;test")
+            .settings(multiJvmSettings: _*)
           .configs (MultiJvm)
 
-  /*
-    Project Test Data
-  */ 
-  
-  lazy val testData = Project(id = "test-data", base = file("test-data"))
-   
-  /*
+
+    /*
+      Project Distributed Benchmarks
+     */
+    lazy val distributedBenchmarks = Project(id = "distributed-benchmarks", base = file("distributed-benchmarks"))
+            .dependsOn(
+                syntax,
+                runtime,
+                schemaExamples,
+                intermediateRepresentation
+            )
+
+    import com.typesafe.sbt.SbtMultiJvm.multiJvmSettings
+    import com.typesafe.sbt.SbtMultiJvm.MultiJvmKeys.MultiJvm
+
+    lazy val hospitalBenchmark = Project(id = "hospital-benchmark", base = file("distributed-benchmarks/hospital"))
+            .dependsOn(
+                distributedBenchmarks
+            )
+            .settings(
+                distributedBenchmarkSettings,
+                multiJvmSettings
+            )
+            .configs(MultiJvm)
+
+    lazy val distributedBenchmarkSettings = Seq(
+    )
+
+    /*
+      Project Test Data
+    */
+
+    lazy val testData = Project(id = "test-data", base = file("test-data"))
+
+    /*
     Root Project
   */  
   lazy val root = Project(id = "sae", base = file("."))
@@ -49,5 +77,7 @@ object sae extends Build {
 
   val virtScala = Option(System.getenv("SCALA_VIRTUALIZED_VERSION")).getOrElse("2.11.2")
 
-  val akkaVersion = "2.4.4"
+    val akkaVersion = "2.4.4"
+
+    val lmsVersion = "latest.integration"
 }
