@@ -54,6 +54,7 @@ trait Benchmark extends BenchmarkConfig with CSVPrinter {
 		def exec(): Unit = {
 
 			section("deploy")
+			initMeasurementFiles()
 			import idb.syntax.iql._
 			val dbs : Seq[Table[Any]] = Seq.fill(dbNames.size)(BagTable.empty[Any])
 			dbs.zip(dbNames) foreach (t =>
@@ -103,6 +104,7 @@ trait Benchmark extends BenchmarkConfig with CSVPrinter {
 	object IntermediateNode {
 		def exec(): Unit = {
 			section("deploy")
+			initMeasurementFiles()
 			section("compile")
 			if (warmup) {
 				section("warmup-predata")
@@ -129,7 +131,7 @@ trait Benchmark extends BenchmarkConfig with CSVPrinter {
 
 		def exec(): Unit = {
 			section("deploy")
-			init()
+			initMeasurementFiles()
 			appendTitle()
 
 			section("compile")
