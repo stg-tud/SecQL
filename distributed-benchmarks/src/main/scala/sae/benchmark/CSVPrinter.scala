@@ -17,12 +17,12 @@ trait CSVPrinter extends BenchmarkConfig {
 	private val benchmarkDay = dayFormat.format(currentDate)
 	private val benchmarkTime =  timeFormat.format(currentDate)
 
-	private def path = s"./benchmark/remote/$benchmarkGroup/$benchmarkDay/$benchmarkQuery/${benchmarkType}_${benchmarkConfig}_$benchmarkNumber/"
+	private def path = s"./distributed-benchmarks/measurements/$benchmarkGroup/$benchmarkDay/$benchmarkQuery/${benchmarkType}_${benchmarkConfig}_$benchmarkNumber/"
 	private def summaryFile = new File(path + s"benchmark-summary.csv")
 	private def memoryFile = new File(path + s"benchmark-mem.csv")
 	private def cpuFile = new File(path + s"benchmark-cpu.csv")
 
-	def init(): Unit = {
+	def initMeasurementFiles(): Unit = {
 
 		val dir = new File(path)
 		if (!dir.exists()) dir.mkdirs()
