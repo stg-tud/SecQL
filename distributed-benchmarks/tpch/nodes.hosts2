@@ -1,0 +1,13 @@
+root@customer.data.tcph.i3ql:java
+root@nation.data.tcph.i3ql:java
+root@orders.data.tcph.i3ql:java
+root@part.data.tcph.i3ql:java
+root@partsupp.data.tcph.i3ql:java
+root@region.data.tcph.i3ql:java
+root@supplies.data.tcph.i3ql:java
+root@finance.process.tcph.i3ql:java
+root@purchasing.process.tcph.i3ql:java
+root@shipping.process.tcph.i3ql:java
+root@geographical.process.tcph.i3ql:java
+root@private.process.tcph.i3ql:java
+root@client.tcph.i3ql:java
