@@ -27,15 +27,6 @@ object sae extends Build {
 
 
 	/*
-	Project Remote playground
-	*/
-	lazy val remotePlayground = Project(id = "remote-playground", base = file("remote-playground"))
-		.dependsOn(syntax % "compile;test").dependsOn(runtime % "compile;test").dependsOn(schemaExamples % "compile;test").dependsOn(intermediateRepresentation % "compile;test")
-		.settings(multiJvmSettings: _*)
-		.configs(MultiJvm)
-
-
-	/*
 	Project Distributed Benchmarks
 	*/
 	lazy val distributedBenchmarks = Project(id = "distributed-benchmarks", base = file("distributed-benchmarks"))
@@ -74,7 +65,7 @@ object sae extends Build {
 	Root Project
 	*/
 	lazy val root = Project(id = "sae", base = file("."))
-		.aggregate(runtime, intermediateRepresentation, schemaExamples, runtimeCompiler, syntax, integrationTest, testData, remotePlayground)
+		.aggregate(runtime, intermediateRepresentation, schemaExamples, runtimeCompiler, syntax, integrationTest, testData, distributedBenchmarks, companyBenchmark, hospitalBenchmark, tpchBenchmark)
 
 
 	val virtScala = Option(System.getenv("SCALA_VIRTUALIZED_VERSION")).getOrElse("2.11.2")
