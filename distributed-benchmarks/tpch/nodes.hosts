@@ -1,0 +1,13 @@
+root@data-customer.tpch.i3ql:java
+root@data-nation.tpch.i3ql:java
+root@data-orders.tpch.i3ql:java
+root@data-part.tpch.i3ql:java
+root@data-partsupp.tpch.i3ql:java
+root@data-region.tpch.i3ql:java
+root@data-supplies.tpch.i3ql:java
+root@process-finance.tpch.i3ql:java
+root@process-purchasing.tpch.i3ql:java
+root@process-shipping.tpch.i3ql:java
+root@process-geographical.tpch.i3ql:java
+root@process-private.tpch.i3ql:java
+root@client.tpch.i3ql:java

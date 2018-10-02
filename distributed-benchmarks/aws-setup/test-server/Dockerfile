@@ -13,7 +13,9 @@ COPY test-server.key.pub /root/.ssh/authorized_keys
 
 # Initialize project
 RUN cd /var && git clone -b distributed-tests -v https://github.com/DSoko2/i3QL.git
+RUN cd /var/i3QL && sbt company-benchmark/multi-jvm:compile
 RUN cd /var/i3QL && sbt hospital-benchmark/multi-jvm:compile
+RUN cd /var/i3QL && sbt tpch-benchmark/multi-jvm:compile
 
 # Run SSH Deamon
 EXPOSE 22
