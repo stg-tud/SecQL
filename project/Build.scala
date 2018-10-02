@@ -59,6 +59,11 @@ object sae extends Build {
 		.settings(multiJvmSettings)
 		.configs(MultiJvm)
 
+	lazy val tpchBenchmark = Project(id = "tpch-benchmark", base = file("distributed-benchmarks/tpch"))
+		.dependsOn(distributedBenchmarks)
+		.settings(multiJvmSettings)
+		.configs(MultiJvm)
+
 	/*
 	Project Test Data
 	*/
