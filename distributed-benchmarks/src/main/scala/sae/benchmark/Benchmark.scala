@@ -1,6 +1,5 @@
 package sae.benchmark
 
-import idb.benchmark.Measurement
 import idb.{BagTable, Relation, SetTable, Table}
 import idb.query.QueryEnvironment
 import idb.util.PrintEvents
@@ -8,7 +7,7 @@ import idb.util.PrintEvents
 /**
   * Created by mirko on 07.11.16.
   */
-trait Benchmark extends BenchmarkConfig with CSVPrinter {
+trait Benchmark extends BenchmarkConfig {
 
 	/*
 		Control Variables
@@ -54,7 +53,6 @@ trait Benchmark extends BenchmarkConfig with CSVPrinter {
 		def exec(): Unit = {
 
 			section("deploy")
-			initMeasurementFiles()
 			import idb.syntax.iql._
 			val dbs : Seq[Table[Any]] = Seq.fill(dbNames.size)(BagTable.empty[Any])
 			dbs.zip(dbNames) foreach (t =>
@@ -87,15 +85,11 @@ trait Benchmark extends BenchmarkConfig with CSVPrinter {
 
 			section("measure-init")
 
-			Measurement.Memory((memBefore, memAfter) => appendMemory(nodeName,System.currentTimeMillis(),memBefore,memAfter), sleepAfterGc = waitForGc) {
-				Measurement.CPU((time, cpuTime, cpuLoad) => appendCpu(nodeName, time, cpuTime, cpuLoad), interval = cpuMeasurementInterval) {
 					section("measure-data")
 					if (!isPredata) {
 						(0 until iterations).foreach(i => iteration(dbs, i))
 					}
 					section("measure-finish")
-				}
-			}
 
 			section("finish")
 		}
@@ -104,7 +98,6 @@ trait Benchmark extends BenchmarkConfig with CSVPrinter {
 	object IntermediateNode {
 		def exec(): Unit = {
 			section("deploy")
-			initMeasurementFiles()
 			section("compile")
 			if (warmup) {
 				section("warmup-predata")
@@ -131,8 +124,6 @@ trait Benchmark extends BenchmarkConfig with CSVPrinter {
 
 		def exec(): Unit = {
 			section("deploy")
-			initMeasurementFiles()
-			appendTitle()
 
 			section("compile")
 			val r : Relation[Domain] = relation()
@@ -165,32 +156,15 @@ trait Benchmark extends BenchmarkConfig with CSVPrinter {
 			Thread.sleep(waitForData)
 
 			section("measure-init")
-			//Add observer for testing purposes
-			import idb.benchmark._
-
 
 			if (DEBUG)
 				idb.util.printEvents(r, "result")
 
-			Measurement.Memory((memBefore, memAfter) => appendMemory("client",System.currentTimeMillis(),memBefore,memAfter), sleepAfterGc = waitForGc) {
-				var count = new CountEvaluator(r)
-				var delay = new DelayEvaluator(r, eventStartTime, measureIterations)
-				//val delay = new DelayEvaluator(SetTable.empty[Int], (i : Int) => i, measureIterations)
-				var throughput = new ThroughputEvaluator(r, count)
 
-				Measurement.CPU((time, cpuTime, cpuLoad) => appendCpu("client", time, cpuTime, cpuLoad), interval = cpuMeasurementInterval) {
 					section("measure-data")
 					Thread.sleep(waitForData)
 
 					section("measure-finish")
-				}
-
-				appendSummary(count, throughput, delay)
-				count = null
-				delay = null
-				throughput = null
-
-			}
 
 
 			section("finish")

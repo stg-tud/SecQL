@@ -1,6 +1,5 @@
 package sae.benchmark.hospital
 
-import idb.benchmark.Measurement
 import idb.query.QueryEnvironment
 import idb.schema.hospital
 import idb.schema.hospital._

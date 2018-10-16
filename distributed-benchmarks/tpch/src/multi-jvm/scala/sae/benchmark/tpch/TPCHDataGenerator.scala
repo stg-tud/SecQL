@@ -7,7 +7,7 @@ import idb.schema.tpch.generation.{CommentGenerator, ListStringGenerator, PhoneG
 import idb.schema.tpch._
 import idb.syntax.iql.IR
 import idb.{BagTable, Relation, Table}
-import sae.benchmark.{Benchmark, BenchmarkConfig, CSVPrinter}
+import sae.benchmark.{Benchmark, BenchmarkConfig}
 
 import scala.util.Random
 
