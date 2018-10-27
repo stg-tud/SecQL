@@ -1,13 +1,9 @@
 package sae.benchmark.hospital
 
 import akka.remote.testkit.MultiNodeSpec
-import akka.testkit.ImplicitSender
-import idb.algebra
-import idb.algebra.print.RelationalAlgebraPrintPlan
+import idb.metrics.ThroughputEvaluator
 import idb.query.taint._
 import idb.query.{QueryEnvironment, RemoteHost}
-import idb.syntax.iql.IR
-
 import sae.benchmark.BenchmarkMultiNodeSpec
 
 class HospitalBenchmark2MultiJvmNode1 extends HospitalBenchmark2
@@ -21,15 +17,11 @@ object HospitalBenchmark2 {} // this object is necessary for multi-node testing
 class HospitalBenchmark2 extends MultiNodeSpec(HospitalMultiNodeConfig)
 	with BenchmarkMultiNodeSpec
 	//Specifies the table setup
-	with DefaultHospitalBenchmark
-	//Specifies the number of measurements/warmups
-	with Measure50000Config {
+	with HospitalBenchmark {
 
-	override val benchmarkQuery = "query2"
-	override val benchmarkNumber: Int = 5
+	override val benchmarkQuery = "2"
 
 	import HospitalMultiNodeConfig._
-	def initialParticipants = roles.size
 
 	//Setup query environment
 	val personHost = RemoteHost("personHost", node(node1))
@@ -37,7 +29,7 @@ class HospitalBenchmark2 extends MultiNodeSpec(HospitalMultiNodeConfig)
 	val knowledgeHost = RemoteHost("knowledgeHost", node(node3))
 	val clientHost = RemoteHost("clientHost", node(node4))
 
-	implicit val env = QueryEnvironment.create(
+	implicit val env: QueryEnvironment = QueryEnvironment.create(
 		system,
 		Map(
 			personHost -> (1, Set("red")),
@@ -46,14 +38,9 @@ class HospitalBenchmark2 extends MultiNodeSpec(HospitalMultiNodeConfig)
 			clientHost -> (0, Set("red", "green", "purple"))
 		)
 	)
-
-	def internalBarrier(name : String): Unit = {
-		enterBarrier(name)
-	}
-
 	override type ResultType = (Long, Int, String, String)
 
-	object ClientNode extends ReceiveNode[ResultType] {
+	object ClientNode extends ReceiveNode[ResultType]("client") {
 		override def relation(): idb.Relation[ResultType] = {
 			//Write an i3ql query...
 			import BaseHospital._
@@ -61,19 +48,19 @@ class HospitalBenchmark2 extends MultiNodeSpec(HospitalMultiNodeConfig)
 			import idb.syntax.iql.IR._
 			import idb.syntax.iql._
 
-			val personDB : Rep[Query[PersonType]] =
-				REMOTE GET (personHost, "person-db", Taint("red"))
-			val patientDB : Rep[Query[PatientType]] =
-				REMOTE GET (patientHost, "patient-db", Taint("green"))
-			val knowledgeDB : Rep[Query[KnowledgeType]] =
-				REMOTE GET (knowledgeHost, "knowledge-db", Taint("purple"))
+			val personDB: Rep[Query[PersonType]] =
+				REMOTE GET(personHost, "person-db", Taint("red"))
+			val patientDB: Rep[Query[PatientType]] =
+				REMOTE GET(patientHost, "patient-db", Taint("green"))
+			val knowledgeDB: Rep[Query[KnowledgeType]] =
+				REMOTE GET(knowledgeHost, "knowledge-db", Taint("purple"))
 
 			val q1 =
 				SELECT DISTINCT (
 					(person: Rep[PersonType], patientSymptom: Rep[(PatientType, String)], knowledgeData: Rep[KnowledgeType]) => (person._1, person._2.personId, person._2.name, knowledgeData.diagnosis)
-				) FROM (
+					) FROM(
 					RECLASS(personDB, Taint("green")), UNNEST(patientDB, (x: Rep[PatientType]) => x.symptoms), knowledgeDB
-				) WHERE	(
+				) WHERE (
 					(person: Rep[PersonType], patientSymptom: Rep[(PatientType, String)], knowledgeData: Rep[KnowledgeType]) =>
 						person._2.personId == patientSymptom._1.personId AND
 							patientSymptom._2 == knowledgeData.symptom AND
@@ -83,13 +70,9 @@ class HospitalBenchmark2 extends MultiNodeSpec(HospitalMultiNodeConfig)
 
 
 			//... and add ROOT. Workaround: Reclass the data to make it pushable to the client node.
-			val r : idb.Relation[ResultType] =
-			ROOT(clientHost, q1)
+			val r: idb.Relation[ResultType] =
+				ROOT(clientHost, q1)
 			r
-		}
-
-		override def eventStartTime(e: ResultType): Long = {
-			e._1
 		}
 	}
 

@@ -3,10 +3,15 @@ package sae.benchmark.company
 import idb.query.taint.Taint
 import sae.benchmark.BenchmarkConfig
 
-/**
-  * Created by mirko on 08.11.16.
-  */
-trait CompanyConfig extends BenchmarkConfig {
+sealed trait CompanyConfig extends BenchmarkConfig {
+
+	override val debugMode: Boolean = false
+
+	override val benchmarkGroup = "company"
+
+	override val doWarmup: Boolean = true
+	override val iterations: Int = 50
+
 	val priorityPublic : Int
 	val priorityProduction : Int
 	val priorityPurchasing : Int
@@ -25,7 +30,7 @@ trait CompanyConfig extends BenchmarkConfig {
 	val labelEmployees : Taint
 }
 
-sealed trait DefaultPriorityConfig extends CompanyConfig {
+trait DefaultPriorityConfig extends CompanyConfig {
 	override val priorityPublic : Int = 4
 	override val priorityProduction : Int = 4
 	override val priorityPurchasing : Int = 4
@@ -44,7 +49,7 @@ sealed trait DefaultPriorityConfig extends CompanyConfig {
 	override val labelEmployees : Taint = Taint("lab:employees")
 }
 
-sealed trait PublicPriorityConfig extends CompanyConfig {
+trait PublicPriorityConfig extends CompanyConfig {
 	override val priorityPublic : Int = 4
 	override val priorityProduction : Int = 4
 	override val priorityPurchasing : Int = 4
@@ -63,7 +68,7 @@ sealed trait PublicPriorityConfig extends CompanyConfig {
 	override val labelEmployees : Taint = Taint("lab:public")
 }
 
-sealed trait ClientPriorityConfig extends CompanyConfig {
+trait ClientPriorityConfig extends CompanyConfig {
 	override val priorityPublic : Int = 1
 	override val priorityProduction : Int = 1
 	override val priorityPurchasing : Int = 1
@@ -80,80 +85,4 @@ sealed trait ClientPriorityConfig extends CompanyConfig {
 	override val labelProduction : Taint = Taint("lab:client")
 	override val labelPurchasing : Taint = Taint("lab:client")
 	override val labelEmployees : Taint = Taint("lab:client")
-}
-
-trait Measure4000DefaultPriorityConfig extends DefaultPriorityConfig {
-	override val benchmarkConfig : String = "measure-4000-all"
-	override val measureIterations : Int = 4000
-	override val warmup = true
-}
-
-trait Measure4000ClientPriorityConfig extends ClientPriorityConfig {
-	override val benchmarkConfig : String = "measure-4000-client"
-	override val measureIterations : Int = 4000
-	override val warmup = true
-}
-
-
-trait AWS4000DefaultPriorityConfig extends DefaultPriorityConfig {
-	override val benchmarkConfig : String = "aws-4000-all"
-	override val measureIterations : Int = 4000
-	override val warmup = true
-
-	override val benchmarkNumber: Int = 5
-}
-
-trait AWS4000ClientPriorityConfig extends ClientPriorityConfig {
-	override val benchmarkConfig : String = "aws-4000-client"
-	override val measureIterations : Int = 4000
-	override val warmup = true
-
-	override val benchmarkNumber: Int = 9
-}
-
-trait AWS4000DefaultPriorityNoWarmupConfig extends DefaultPriorityConfig {
-	override val benchmarkConfig : String = "aws-4000-all"
-	override val measureIterations : Int = 4000
-	override val warmup = false
-
-	override val benchmarkNumber: Int = 11
-}
-
-trait AWS4000ClientPriorityNoWarmupConfig extends ClientPriorityConfig {
-	override val benchmarkConfig : String = "aws-4000-client"
-	override val measureIterations : Int = 4000
-	override val warmup = false
-
-	override val benchmarkNumber: Int = 10
-}
-
-
-trait Test4000DefaultPriorityConfig extends DefaultPriorityConfig {
-	override val benchmarkConfig : String = "test-4000-all"
-	override val measureIterations : Int = 4000
-	override val warmup = false
-}
-
-trait Test4000ClientPriorityConfig extends ClientPriorityConfig {
-	override val benchmarkConfig : String = "test-4000-client"
-	override val measureIterations : Int = 4000
-	override val warmup = false
-}
-
-trait Test10DefaultPriorityConfig extends DefaultPriorityConfig {
-	override val benchmarkConfig : String = "test-10-all"
-	override val measureIterations : Int = 10
-	override val warmup = false
-}
-
-trait Test10ClientPriorityConfig extends ClientPriorityConfig {
-	override val benchmarkConfig : String = "test-10-client"
-	override val measureIterations : Int = 10
-	override val warmup = false
-}
-
-trait Test10PublicPriorityConfig extends PublicPriorityConfig {
-	override val benchmarkConfig : String = "test-10-client"
-	override val measureIterations : Int = 10
-	override val warmup = false
 }

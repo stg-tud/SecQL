@@ -1,12 +1,10 @@
 package sae.benchmark.tpch
 
-import java.time.Instant
 import java.util.Date
 
-import idb.schema.tpch.generation.{CommentGenerator, ListStringGenerator, PhoneGenerator, StringGenerator}
+import idb.Table
 import idb.schema.tpch._
-import idb.syntax.iql.IR
-import idb.{BagTable, Relation, Table}
+import idb.schema.tpch.generation.{CommentGenerator, ListStringGenerator, PhoneGenerator, StringGenerator}
 import sae.benchmark.{Benchmark, BenchmarkConfig}
 
 import scala.util.Random
@@ -48,31 +46,11 @@ trait TPCHDataGenerator extends Benchmark {
 	}
 }
 
-
-
-trait TPCHMeasureConfig extends BenchmarkConfig
-
-trait TestMeasureConfig extends TPCHMeasureConfig {
-	override val benchmarkConfig : String = "test"
-	override val warmup = false
-	override val measureIterations: Int = 1
-
-
-}
-
 trait DefaultDataGenerator extends TPCHDataGenerator {
-
-	override val benchmarkType = "default"
 
 	val SF1000TH = 1
 
-	object CustomerDBNode extends DBNode {
-		override val nodeName = "customer-node"
-		override val dbNames = Seq("db")
-
-		override val iterations: Int = SF1000TH * 100
-		override val isPredata : Boolean = false
-
+	object CustomerDBNode extends DBNode("data-customer", Seq("db"), 0, SF1000TH * 100) {
 		private val random = new Random()
 
 		override def iteration(dbs : Seq[Table[Any]], index : Int): Unit = {
@@ -91,13 +69,7 @@ trait DefaultDataGenerator extends TPCHDataGenerator {
 		}
 	}
 
-	object NationDBNode extends DBNode {
-		override val nodeName = "nation-node"
-		override val dbNames = Seq("db")
-
-		override val iterations: Int = 1
-		override val isPredata : Boolean = false
-
+	object NationDBNode extends DBNode("data-nation", Seq("db"), 0, 1) {
 		override def iteration(dbs : Seq[Table[Any]], index : Int): Unit = {
 			val db = dbs(0)
 			db += Nation(0, "ALGERIA", 0, CommentGenerator.generateText(31, 114))
@@ -128,15 +100,8 @@ trait DefaultDataGenerator extends TPCHDataGenerator {
 		}
 	}
 
-	object OrdersDBNode extends DBNode {
+	object OrdersDBNode extends DBNode("data-orders", Seq("orders", "lineitem"), 0, SF1000TH * 1500) {
 		//This node ius responisible for orders and line item generations.
-
-		override val nodeName = "orders-node"
-		override val dbNames = Seq("orders", "lineitem")
-
-		override val iterations: Int = SF1000TH * 1500
-		override val isPredata : Boolean = false
-
 		private val random = new Random()
 
 		override def iteration(dbs : Seq[Table[Any]], index : Int): Unit = {
@@ -224,13 +189,7 @@ trait DefaultDataGenerator extends TPCHDataGenerator {
 		}
 	}
 
-	object PartDBNode extends DBNode {
-		override val nodeName = "part-node"
-		override val dbNames = Seq("db")
-
-		override val iterations: Int = SF1000TH * 200
-		override val isPredata : Boolean = false
-
+	object PartDBNode extends DBNode("data-part", Seq("db"), 0, SF1000TH * 200) {
 		private val random = new Random()
 		private val namelist = List("almond", "antique", "aquamarine", "azure", "beige", "bisque", "black", "blanched", "blue",
 			"blush", "brown", "burlywood", "burnished", "chartreuse", "chiffon", "chocolate", "coral",
@@ -272,13 +231,7 @@ trait DefaultDataGenerator extends TPCHDataGenerator {
 		}
 	}
 
-	object PartSuppDBNode extends DBNode {
-		override val nodeName = "partsupp-node"
-		override val dbNames = Seq("db")
-
-		override val iterations: Int = SF1000TH * 200
-		override val isPredata : Boolean = false
-
+	object PartSuppDBNode extends DBNode("data-partsupp", Seq("db"), 0, SF1000TH * 200) {
 		private val random = new Random()
 
 		override def iteration(dbs : Seq[Table[Any]], index : Int): Unit = {
@@ -297,13 +250,7 @@ trait DefaultDataGenerator extends TPCHDataGenerator {
 		}
 	}
 
-	object RegionDBNode extends DBNode {
-		override val nodeName = "region-node"
-		override val dbNames = Seq("db")
-
-		override val iterations: Int = 1
-		override val isPredata : Boolean = false
-
+	object RegionDBNode extends DBNode("data-region", Seq("db"), 0, 1) {
 		override def iteration(dbs : Seq[Table[Any]], index : Int): Unit = {
 			val db = dbs(0)
 			db += Region(0, "AFRICA", CommentGenerator.generateText(31, 115))
@@ -314,13 +261,7 @@ trait DefaultDataGenerator extends TPCHDataGenerator {
 		}
 	}
 
-	object SupplierDBNode extends DBNode {
-		override val nodeName = "supplier-node"
-		override val dbNames = Seq("db")
-
-		override val iterations: Int = SF1000TH * 10
-		override val isPredata : Boolean = false
-
+	object SupplierDBNode extends DBNode("data-supplier", Seq("db"), 0, SF1000TH * 10) {
 		private val random = new Random()
 
 		private val complaintComments : Set[Int] = {

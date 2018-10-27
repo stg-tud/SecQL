@@ -5,19 +5,28 @@ package sae.benchmark
   */
 trait BenchmarkConfig {
 
-	//Each benchmark run is identified by group.name.type.config.number
-	//e.g. hospital.query1.default.measure20000.1
-	val benchmarkGroup : String
-	val benchmarkQuery : String
-	val benchmarkType : String
-	val benchmarkConfig : String
-	val benchmarkNumber : Int
+	val debugMode: Boolean
 
-	val measureIterations : Int
-	val warmup : Boolean
+	val benchmarkGroup: String
+	val benchmarkQuery: String
 
-	def identifier : String =
-		s"$benchmarkGroup.$benchmarkQuery.$benchmarkType.$benchmarkConfig.$benchmarkNumber"
+	val iterations: Int
+	val doWarmup: Boolean
+
+	val waitForDeploymentMs = 10000L
+	val waitForResetMs = 5000L
+	val waitForBeingColdMs = 2000L
+
+	val throughputRecordingIntervalMs = 100
+	val performanceRecordingIntervalMs = 100
+	val mongoTransferRecords: Boolean = false
+	val mongoConnectionString: String = "mongodb://localhost:27017"
+
+	val startTime: Long = System.currentTimeMillis() / 1000
+
+	def executionId: String = {
+		s"$benchmarkGroup.$benchmarkQuery.$startTime"
+	}
 }
 
 

@@ -17,103 +17,8 @@ trait CompanyBenchmark extends Benchmark {
 	}
 
 	object Data extends CompanyTestData
-}
-
-trait TestCompanyBenchmark extends CompanyBenchmark {
-	override val benchmarkType = "test"
-
-	object PublicDBNode extends DBNode {
-
-		override val nodeName = "public-node"
-		override val dbNames = Seq("product-db", "factory-db")
-
-		override val iterations = measureIterations
-
-		override val isPredata = false
-
-		override def iteration(dbs: Seq[Table[Any]], index: Int): Unit = {
-			val productDB = dbs(0)
-			productDB += Product(index, "Billy" + index)
-
-			if (index == 0) {
-				val factoryDB = dbs(1)
-				factoryDB += Factory(0, Data.Cities.DARMSTADT)
-			}
-		}
-	}
-
-	object ProductionDBNode extends DBNode {
-
-		override val nodeName = "production-node"
-		override val dbNames = Seq("component-db", "pc-db", "fp-db")
-
-		override val iterations = measureIterations
-
-		override val isPredata = false
-
-		override def iteration(dbs: Seq[Table[Any]], index: Int): Unit = {
-			val pcDB = dbs(1)
-			val fpDB = dbs(2)
-
-			pcDB += PC(index, 0, 1)
-			fpDB += FP(0, index)
-
-			if (index == 0) {
-				val componentsDB = dbs(0)
-				componentsDB += Component(0, Data.ComponentNames.OAK, Data.Materials.WOOD)
-			}
-		}
-	}
-
-	object PurchasingDBNode extends DBNode {
-
-		override val nodeName = "purchasing-node"
-		override val dbNames = Seq("supplier-db", "sc-db")
-
-		override val iterations = 1
-
-		override val isPredata = false
-
-		override def iteration(dbs: Seq[Table[Any]], index: Int): Unit = {
-			val supplierDB = dbs(0)
-			val scDB = dbs(1)
-
-			supplierDB += Supplier(0, "Woodland Inc.", Data.Cities.FRANKFURT)
-			scDB += SC(0, 0, 1000, 42.23)
-		}
-	}
-
-	object EmployeesDBNode extends DBNode {
-
-		override val nodeName = "employee-node"
-		override val dbNames = Seq("employee-db", "fe-db")
-
-		override val iterations = 1
-
-		override val isPredata = false
-
-		override def iteration(dbs: Seq[Table[Any]], index: Int): Unit = {
-			val employeesDB = dbs(0)
-			val feDB = dbs(1)
-
-			employeesDB += Employee(0, "Alice")
-			feDB += FE(0, 0, Data.Jobs.WORKER)
-		}
-	}
-}
-
-trait DefaultCompanyBenchmark extends CompanyBenchmark {
-	override val benchmarkType = "default"
-
-	object PublicDBNode extends DBNode {
-
-		override val nodeName = "public-node"
-		override val dbNames = Seq("product-db", "factory-db")
-
-		override val iterations = measureIterations
-
-		override val isPredata = false
-
+	
+	object PublicDBNode extends DBNode("public", Seq("product-db", "factory-db"), 0, iterations) {
 		override def iteration(dbs: Seq[Table[Any]], index: Int): Unit = {
 			val productDB = dbs(0)
 			val factoryDB = dbs(1)
@@ -129,15 +34,7 @@ trait DefaultCompanyBenchmark extends CompanyBenchmark {
 		}
 	}
 
-	object ProductionDBNode extends DBNode {
-
-		override val nodeName = "production-node"
-		override val dbNames = Seq("component-db", "pc-db", "fp-db")
-
-		override val iterations = measureIterations
-
-		override val isPredata = false
-
+	object ProductionDBNode extends DBNode("production", Seq("component-db", "pc-db", "fp-db"), 0, iterations) {
 		override def iteration(dbs: Seq[Table[Any]], index: Int): Unit = {
 			val componentsDB = dbs(0)
 			val pcDB = dbs(1)
@@ -156,15 +53,7 @@ trait DefaultCompanyBenchmark extends CompanyBenchmark {
 		}
 	}
 
-	object PurchasingDBNode extends DBNode {
-
-		override val nodeName = "purchasing-node"
-		override val dbNames = Seq("supplier-db", "sc-db")
-
-		override val iterations = measureIterations
-
-		override val isPredata = false
-
+	object PurchasingDBNode extends DBNode("purchasing", Seq("supplier-db", "sc-db"), 0, iterations) {
 		override def iteration(dbs: Seq[Table[Any]], index: Int): Unit = {
 			val supplierDB = dbs(0)
 			val scDB = dbs(1)
@@ -188,15 +77,7 @@ trait DefaultCompanyBenchmark extends CompanyBenchmark {
 		}
 	}
 
-	object EmployeesDBNode extends DBNode {
-
-		override val nodeName = "employee-node"
-		override val dbNames = Seq("employee-db", "fe-db")
-
-		override val iterations = measureIterations
-
-		override val isPredata = false
-
+	object EmployeesDBNode extends DBNode("employees", Seq("employee-db", "fe-db"), 0, iterations) {
 		override def iteration(dbs: Seq[Table[Any]], index: Int): Unit = {
 			val employeesDB = dbs(0)
 			val feDB = dbs(1)

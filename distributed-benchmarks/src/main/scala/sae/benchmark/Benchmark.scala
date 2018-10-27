@@ -1,178 +1,216 @@
 package sae.benchmark
 
-import idb.{BagTable, Relation, SetTable, Table}
+import akka.event.Logging
+import akka.remote.testkit.MultiNodeSpec
+import idb.metrics.{CountEvaluator, ThroughputEvaluator}
+import idb.{BagTable, Relation, Table}
 import idb.query.QueryEnvironment
-import idb.util.PrintEvents
+import sae.benchmark.recording.impl.{EventRecorder, PerformanceRecorder, ThroughputRecorder}
+import sae.benchmark.recording.transport.MongoTransport
 
 /**
   * Created by mirko on 07.11.16.
   */
-trait Benchmark extends BenchmarkConfig {
-
-	/*
-		Control Variables
-	 */
-	val waitForCompile = 10000 //ms
-	val waitForData = 12000 //ms
-	val waitForReset = 10000 //ms
-	val waitForGc = 10000 //ms
-
-	val cpuMeasurementInterval = 10 //ms
-
-	val DEBUG = false
+trait Benchmark extends MultiNodeSpec with BenchmarkConfig {
 
 	//Environment must be available everywhere
-	implicit val env : QueryEnvironment
+	implicit val env: QueryEnvironment
 
-	/*
-		Barrier management
-	 */
-	protected def internalBarrier(name : String)
-
-	private def section(name : String): Unit = {
-		internalBarrier(name : String)
-		println(s"### Enter barrier __${name}__ ###")
-	}
+	def initialParticipants = roles.size
 
 	/*
 		Node definitions
 	 */
-	trait DBNode {
+	class Node(val nodeName: String) {
+		val eventRecorder = new EventRecorder(s"$executionId.$nodeName",
+			if (mongoTransferRecords) new MongoTransport(mongoConnectionString, nodeName) else null)
+		val performanceRecorder = new PerformanceRecorder(s"$executionId.$nodeName",
+			if (mongoTransferRecords) new MongoTransport(mongoConnectionString, nodeName) else null)
+		var throughputRecorder: ThroughputRecorder = _
 
-		val nodeName : String
-		val dbNames : Seq[String]
-
-		val iterations : Int
-
-		val isPredata : Boolean
-
-		def iteration(dbs : Seq[Table[Any]], index : Int)
-
-		var finished = false
+		private def enterSection(section: String): Unit = {
+			log.info(s"Waiting for section '$section' on node '$nodeName'")
+			enterBarrier(section: String)
+			eventRecorder.log(s"section.$section")
+			log.info(s"Entering section '$section' on node '$nodeName'")
+		}
 
 		def exec(): Unit = {
+			deploy()
+			compile()
+			if (doWarmup) {
+				warmupInit()
+				warmup()
+				warmupFinished()
+				reset()
+			}
+			measurementInit()
+			measurementRecordingInit()
+			measurement()
+			measurementAfterBurn()
+			measurementFinished()
+		}
 
-			section("deploy")
+		protected def deploy(): Unit = {
+			enterSection("deploy")
+		}
+
+		protected def compile(): Unit = {
+			enterSection("compile")
+		}
+
+		protected def warmupInit(): Unit = {
+			enterSection("warmup-init")
+		}
+
+		protected def warmup(): Unit = {
+			enterSection("warmup")
+		}
+
+		protected def warmupFinished(): Unit = {
+			enterSection("warmup-finish")
+		}
+
+		protected def reset(): Unit = {
+			enterSection("reset")
+		}
+
+		protected def measurementInit(): Unit = {
+			enterSection("measurement-init")
+		}
+
+		/**
+		  * Starts the measurement related recording
+		  *
+		  * @param recorderRelations Relations to record the throughput of
+		  */
+		protected def measurementRecordingInit(recorderRelations: Map[String, ThroughputEvaluator[_]] = null): Unit = {
+			enterSection("measurement-recording")
+
+			if (recorderRelations != null) {
+				throughputRecorder = new ThroughputRecorder(s"$executionId.$nodeName", recorderRelations,
+					if (mongoTransferRecords) new MongoTransport(mongoConnectionString, nodeName) else null)
+				throughputRecorder.start(throughputRecordingIntervalMs)
+			}
+
+			performanceRecorder.start(performanceRecordingIntervalMs)
+		}
+
+		protected def measurement(): Unit = {
+			enterSection("measurement")
+		}
+
+		protected def measurementAfterBurn(): Unit = {
+			enterSection("measurement-after-burn")
+		}
+
+		protected def measurementFinished(): Unit = {
+			enterSection("measurement-finished")
+			performanceRecorder.terminateAndTransfer()
+			eventRecorder.terminateAndTransfer()
+			if (throughputRecorder != null)
+				throughputRecorder.terminateAndTransfer()
+		}
+	}
+
+	class DBNode(
+					nodeName: String,
+					val dbNames: Seq[String],
+					val initIterations: Int,
+					val iterations: Int
+				) extends Node(nodeName) {
+
+		protected def initIteration(dbs: Seq[Table[Any]], iteration: Int): Unit = {}
+
+		protected def iteration(dbs: Seq[Table[Any]], iteration: Int): Unit = {}
+
+		var dbs: Seq[Table[Any]] = _
+
+		override protected def deploy(): Unit = {
+			super.deploy()
+
 			import idb.syntax.iql._
-			val dbs : Seq[Table[Any]] = Seq.fill(dbNames.size)(BagTable.empty[Any])
-			dbs.zip(dbNames) foreach (t =>
-				REMOTE DEFINE (t._1, t._2)
-			)
+			dbs = Seq.fill(dbNames.size)(BagTable.empty[Any])
+			dbs.zip(dbNames) foreach (t => REMOTE DEFINE(t._1, t._2))
+		}
 
-			section("compile")
-			//The query gets compiled here...
+		override protected def warmupInit(): Unit = {
+			super.warmupInit()
+			(0 until initIterations).foreach(i => initIteration(dbs, i))
+		}
 
-			if (warmup) {
-				section("warmup-predata")
-				if (isPredata) {
-					(0 until iterations).foreach(i => iteration(dbs, i))
-				}
+		override protected def warmup(): Unit = {
+			super.warmup()
+			(0 until iterations).foreach(i => iteration(dbs, i))
+		}
 
-				section("warmup-data")
-				if (!isPredata) {
-					(0 until iterations).foreach(i => iteration(dbs, i))
-				}
+		override protected def measurementRecordingInit(recorderRelations: Map[String, ThroughputEvaluator[_]]): Unit =
+			super.measurementRecordingInit(Map(dbNames zip dbs map { db => db._1 -> new ThroughputEvaluator(db._2) }: _*))
 
-				section("warmup-finish")
+		override protected def measurementInit(): Unit = {
+			super.measurementInit()
+			(0 until initIterations).foreach(i => initIteration(dbs, i))
+		}
 
-				section("reset")
-			}
-
-			section("measure-predata")
-			if (isPredata) {
-				(0 until iterations).foreach(i => iteration(dbs, i))
-			}
-
-			section("measure-init")
-
-					section("measure-data")
-					if (!isPredata) {
-						(0 until iterations).foreach(i => iteration(dbs, i))
-					}
-					section("measure-finish")
-
-			section("finish")
+		override protected def measurement(): Unit = {
+			super.measurement()
+			(0 until iterations).foreach(i => iteration(dbs, i))
 		}
 	}
 
-	object IntermediateNode {
-		def exec(): Unit = {
-			section("deploy")
-			section("compile")
-			if (warmup) {
-				section("warmup-predata")
-				section("warmup-data")
-				section("warmup-finish")
-				section("reset")
-			}
+	abstract class ReceiveNode[Domain](nodeName: String) extends Node(nodeName) {
 
-			section("measure-predata")
-			section("measure-init")
-			section("measure-data")
-			section("measure-finish")
-			section("finish")
+		protected def relation(): Relation[Domain]
+
+		protected var r: Relation[Domain] = _
+
+		protected var countEvaluator: CountEvaluator[Domain] = _
+
+		protected def sleepUntilCold() {
+			var lastEventCount = 0L
+			do {
+				lastEventCount = countEvaluator.eventCount
+				log.info(s"Waiting to get cold... ($lastEventCount events)")
+				Thread.sleep(waitForBeingColdMs)
+			} while (lastEventCount != countEvaluator.eventCount)
+			log.info(s"I am cold ($lastEventCount events)")
 		}
 
-	}
+		override protected def compile(): Unit = {
+			super.compile()
 
-	trait ReceiveNode[Domain] {
-
-		def relation() : Relation[Domain]
-		def eventStartTime(e : Domain) : Long
-
-		var finished = false
-
-		def exec(): Unit = {
-			section("deploy")
-
-			section("compile")
-			val r : Relation[Domain] = relation()
-			//Print the runtime class representation
-			Thread.sleep(waitForCompile)
-
-			Predef.println("### Relation.compiled ###")
+			r = relation()
 			r.print()
-			Thread.sleep(2000)
-			Predef.println("### ###")
+			log.info(s"Waiting for deployment ${waitForDeploymentMs / 1000}s")
+			Thread.sleep(waitForDeploymentMs)
+		}
 
-			if (warmup) {
-				section("warmup-predata")
-				//The tables are now sending data
-				Thread.sleep(waitForData)
+		override protected def reset(): Unit = {
+			super.reset()
+			r.reset()
+			log.info(s"Waiting for reset ${waitForResetMs / 1000}s")
+			Thread.sleep(waitForResetMs)
+		}
 
-				section("warmup-data")
-				//The tables are now sending data
-				Thread.sleep(waitForData)
+		override protected def measurementInit(): Unit = {
+			super.measurementInit()
+			if (debugMode) idb.util.printEvents(r, "result")
+		}
 
-				section("warmup-finish")
+		override protected def measurementRecordingInit(recorderRelations: Map[String, ThroughputEvaluator[_]] = null): Unit = {
+			countEvaluator = new CountEvaluator[Domain](r)
+			super.measurementRecordingInit(Map("relation" -> new ThroughputEvaluator[Domain](r, countEvaluator)))
+		}
 
-				section("reset")
-				r.reset()
-				Thread.sleep(waitForReset)
-			}
+		override protected def measurement(): Unit = {
+			super.measurement()
+		}
 
-			section("measure-predata")
-			//The tables are now sending data
-			Thread.sleep(waitForData)
-
-			section("measure-init")
-
-			if (DEBUG)
-				idb.util.printEvents(r, "result")
-
-
-					section("measure-data")
-					Thread.sleep(waitForData)
-
-					section("measure-finish")
-
-
-			section("finish")
-
+		override protected def measurementAfterBurn(): Unit = {
+			super.measurementAfterBurn()
+			sleepUntilCold()
 		}
 	}
-
-
 
 
 }
