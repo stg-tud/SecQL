@@ -1,46 +1,11 @@
 package sae.benchmark.hospital
 
-import akka.remote.testkit.MultiNodeConfig
-import com.typesafe.config.ConfigFactory
+import akka.remote.testconductor.RoleName
+import sae.benchmark.BenchmarkMultiNodeConfig
 
-/**
-  * @author Mirko Köhler
-  */
-object HospitalMultiNodeConfig extends MultiNodeConfig {
-	//debugConfig(true)
-
-	commonConfig(ConfigFactory.parseString(
-		"""
-		akka {
-			actor {
-				# Log level used by the configured loggers (see "loggers") as soon
-				# as they have been started; before that, see "stdout-loglevel"
-				# Options: OFF, ERROR, WARNING, INFO, DEBUG
-				loglevel = "DEBUG"
-
-				# Log level for the very basic logger activated during ActorSystem startup.
-				# This logger prints the log messages to stdout (System.out).
-				# Options: OFF, ERROR, WARNING, INFO, DEBUG
-				stdout-loglevel = "DEBUG"
-
-				serializers {
-					java = "akka.serialization.JavaSerializer"
-					proto = "akka.remote.serialization.ProtobufSerializer"
-				}
-    		# myown = "idb.remote.TestSerializer"
-
-				# Change this setting to change the default serializer
-				serialization-bindings {
-					"idb.remote.DataMessage" = java
-				}
-
-				warn-about-java-serializer-usage = false
-			}
-        }
-    """))
-
-	val node1 =	role("person")
-	val node2 = role("patient")
-	val node3 = role("knowledge")
-	val node4 = role("client")
+object HospitalMultiNodeConfig extends BenchmarkMultiNodeConfig {
+	val node1: RoleName = role("person")
+	val node2: RoleName = role("patient")
+	val node3: RoleName = role("knowledge")
+	val node4: RoleName = role("client")
 }
