@@ -19,8 +19,9 @@ trait BenchmarkConfig {
 
 	val throughputRecordingIntervalMs = 100
 	val performanceRecordingIntervalMs = 100
+
 	val mongoTransferRecords: Boolean = false
-	val mongoConnectionString: String = "mongodb://localhost:27017"
+	val mongoConnectionString: String
 
 	val startTime: Long = System.currentTimeMillis() / 1000
 

@@ -12,6 +12,9 @@ sealed trait CompanyConfig extends BenchmarkConfig {
 	override val doWarmup: Boolean = true
 	override val iterations: Int = 50
 
+	override val mongoTransferRecords: Boolean = true
+	override val mongoConnectionString: String = "mongodb://server.company.i3ql:27017"
+
 	val priorityPublic : Int
 	val priorityProduction : Int
 	val priorityPurchasing : Int

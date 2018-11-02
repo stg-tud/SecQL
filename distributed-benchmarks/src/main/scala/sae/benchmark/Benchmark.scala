@@ -1,12 +1,11 @@
 package sae.benchmark
 
-import akka.event.Logging
 import akka.remote.testkit.MultiNodeSpec
 import idb.metrics.{CountEvaluator, ThroughputEvaluator}
-import idb.{BagTable, Relation, Table}
 import idb.query.QueryEnvironment
-import sae.benchmark.recording.impl.{EventRecorder, PerformanceRecorder, ThroughputRecorder}
-import sae.benchmark.recording.transport.MongoTransport
+import idb.{BagTable, Relation, Table}
+import sae.benchmark.recording.mongo.MongoTransport
+import sae.benchmark.recording.recorders._
 
 /**
   * Created by mirko on 07.11.16.
@@ -16,16 +15,16 @@ trait Benchmark extends MultiNodeSpec with BenchmarkConfig {
 	//Environment must be available everywhere
 	implicit val env: QueryEnvironment
 
-	def initialParticipants = roles.size
+	def initialParticipants: Int = roles.size
 
 	/*
 		Node definitions
 	 */
 	class Node(val nodeName: String) {
-		val eventRecorder = new EventRecorder(s"$executionId.$nodeName",
-			if (mongoTransferRecords) new MongoTransport(mongoConnectionString, nodeName) else null)
-		val performanceRecorder = new PerformanceRecorder(s"$executionId.$nodeName",
-			if (mongoTransferRecords) new MongoTransport(mongoConnectionString, nodeName) else null)
+		val eventRecorder = new EventRecorder(executionId, nodeName,
+			if (mongoTransferRecords) new MongoTransport[EventRecord](mongoConnectionString, EventRecord) else null)
+		val performanceRecorder = new PerformanceRecorder(executionId, nodeName,
+			if (mongoTransferRecords) new MongoTransport[PerformanceRecord](mongoConnectionString, PerformanceRecord) else null)
 		var throughputRecorder: ThroughputRecorder = _
 
 		private def enterSection(section: String): Unit = {
@@ -41,6 +40,7 @@ trait Benchmark extends MultiNodeSpec with BenchmarkConfig {
 			if (doWarmup) {
 				warmupInit()
 				warmup()
+				warmupAfterBurn()
 				warmupFinished()
 				reset()
 			}
@@ -67,6 +67,10 @@ trait Benchmark extends MultiNodeSpec with BenchmarkConfig {
 			enterSection("warmup")
 		}
 
+		protected def warmupAfterBurn(): Unit = {
+			enterSection("warmup-after-burn")
+		}
+
 		protected def warmupFinished(): Unit = {
 			enterSection("warmup-finish")
 		}
@@ -88,8 +92,8 @@ trait Benchmark extends MultiNodeSpec with BenchmarkConfig {
 			enterSection("measurement-recording")
 
 			if (recorderRelations != null) {
-				throughputRecorder = new ThroughputRecorder(s"$executionId.$nodeName", recorderRelations,
-					if (mongoTransferRecords) new MongoTransport(mongoConnectionString, nodeName) else null)
+				throughputRecorder = new ThroughputRecorder(executionId, nodeName, recorderRelations,
+					if (mongoTransferRecords) new MongoTransport[ThroughputRecord](mongoConnectionString, ThroughputRecord) else null)
 				throughputRecorder.start(throughputRecordingIntervalMs)
 			}
 
@@ -183,6 +187,18 @@ trait Benchmark extends MultiNodeSpec with BenchmarkConfig {
 			r.print()
 			log.info(s"Waiting for deployment ${waitForDeploymentMs / 1000}s")
 			Thread.sleep(waitForDeploymentMs)
+		}
+
+		override def warmupInit(): Unit = {
+			super.warmupInit()
+			countEvaluator = new CountEvaluator[Domain](r)
+		}
+
+		override protected def warmupAfterBurn(): Unit = {
+			super.warmupAfterBurn()
+			sleepUntilCold()
+			r.removeObserver(countEvaluator)
+			countEvaluator = null
 		}
 
 		override protected def reset(): Unit = {

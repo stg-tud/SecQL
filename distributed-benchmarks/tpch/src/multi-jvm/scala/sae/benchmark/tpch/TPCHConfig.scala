@@ -11,4 +11,7 @@ trait TPCHConfig extends BenchmarkConfig {
 	override val doWarmup: Boolean = true
 	override val iterations: Int = 1
 
+	override val mongoTransferRecords: Boolean = true
+	override val mongoConnectionString: String = "mongodb://server.tpch.i3ql:27017"
+
 }

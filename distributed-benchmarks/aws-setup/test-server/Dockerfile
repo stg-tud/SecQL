@@ -11,12 +11,25 @@ COPY test-server.key /root/.ssh/id_rsa
 # Configure login for the same identity
 COPY test-server.key.pub /root/.ssh/authorized_keys
 
+# Install mongodb
+RUN cd /opt && curl https://fastdl.mongodb.org/linux/mongodb-linux-x86_64-debian92-4.0.3.tgz | tar -xzv
+RUN mv /opt/mongodb-* /opt/mongodb
+RUN mkdir -p /var/lib/mongodb
+RUN echo "export PATH=/opt/mongodb/bin:$PATH" >> ~/.bashrc
+
 # Initialize project
 RUN cd /var && git clone -b distributed-tests -v https://github.com/DSoko2/i3QL.git
 RUN cd /var/i3QL && sbt company-benchmark/multi-jvm:compile
 RUN cd /var/i3QL && sbt hospital-benchmark/multi-jvm:compile
 RUN cd /var/i3QL && sbt tpch-benchmark/multi-jvm:compile
 
-# Run SSH Deamon
+# Add additional hosts file, which need to be added to /etc/hosts in CMD, since docker
+# reinitalizes /etc/hosts on every boot
+COPY hosts /opt/hosts
+
+# Run mongodb and SSH Deamon
+EXPOSE 27017
 EXPOSE 22
-CMD /usr/sbin/sshd -D
+CMD cat /opt/hosts >> /etc/hosts && \
+	/opt/mongodb/bin/mongod --fork --bind_ip_all --dbpath /var/lib/mongodb --logpath /var/log/mongodb && \
+	/usr/sbin/sshd -D
