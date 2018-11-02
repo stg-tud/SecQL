@@ -23,11 +23,11 @@ trait BenchmarkConfig {
 	val mongoTransferRecords: Boolean = false
 	val mongoConnectionString: String
 
-	val startTime: Long = System.currentTimeMillis() / 1000
-
+	// Append unique id, if runs shall be distinguishable
 	def executionId: String = {
-		s"$benchmarkGroup.$benchmarkQuery.$startTime"
+		s"$benchmarkGroup.$benchmarkQuery"
 	}
+
 }
 
 
