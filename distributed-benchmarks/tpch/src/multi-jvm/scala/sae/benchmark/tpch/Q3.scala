@@ -3,7 +3,7 @@ package sae.benchmark.tpch
 import java.util.Date
 
 import akka.remote.testkit.MultiNodeSpec
-import idb.{Relation, algebra}
+import idb.Relation
 import idb.query.taint._
 import idb.query.{QueryEnvironment, RemoteHost}
 import idb.schema.tpch._
@@ -32,13 +32,11 @@ class Q3 extends MultiNodeSpec(TPCHMultiNodeConfig)
 	//Specifies the table setup
 	with DefaultDataGenerator
 	//Specifies the number of measurements/warmups
-	with TestMeasureConfig {
+	with TPCHConfig {
 
 	import TPCHMultiNodeConfig._
 
 	override val benchmarkQuery = "q3"
-	override val benchmarkNumber: Int = 0
-	def initialParticipants = roles.size
 
 	/*
 		Setup query environment
@@ -199,16 +197,12 @@ class Q3 extends MultiNodeSpec(TPCHMultiNodeConfig)
 		"comment" -> Taint(taintid_SupplierGeneral)
 	)
 
-	def internalBarrier(name : String): Unit = {
-		enterBarrier(name)
-	}
-
-	object ClientNode extends ReceiveNode[Any] {
+	object ClientNode extends ReceiveNode[Any]("client") {
 		override def relation(): Relation[Any] = {
 			//Write an i3ql query...
+			import DataSchema._
 			import idb.syntax.iql.IR._
 			import idb.syntax.iql._
-			import DataSchema._
 
 			val customerDB : Rep[Query[Customer]] =
 				REMOTE GET (host_data_customer, "db", taint_customer)
@@ -254,10 +248,6 @@ class Q3 extends MultiNodeSpec(TPCHMultiNodeConfig)
 
 			r
 		}
-
-		override def eventStartTime(e: Any): Long = {
-			0
-		}
 	}
 
 	"Hospital Benchmark" must {
@@ -270,11 +260,11 @@ class Q3 extends MultiNodeSpec(TPCHMultiNodeConfig)
 			runOn(node_data_region) { RegionDBNode.exec() }
 			runOn(node_data_supplier) { SupplierDBNode.exec() }
 
-			runOn(node_process_finance) {IntermediateNode.exec()}
-			runOn(node_process_purchasing) {IntermediateNode.exec()}
-			runOn(node_process_shipping) {IntermediateNode.exec()}
-			runOn(node_process_geographical) {IntermediateNode.exec()}
-			runOn(node_process_private) {IntermediateNode.exec()}
+			runOn(node_process_finance) { new Node("process-finance").exec() }
+			runOn(node_process_purchasing) { new Node("process-purchasing").exec() }
+			runOn(node_process_shipping) { new Node("process-shipping").exec() }
+			runOn(node_process_geographical) { new Node("process-geographical").exec() }
+			runOn(node_process_private) { new Node("process-private").exec() }
 
 			runOn(node_client) { ClientNode.exec() }
 		}

@@ -19,18 +19,14 @@ object CompanyBenchmark3 {} // this object is necessary for multi-node testing
 class CompanyBenchmark3 extends MultiNodeSpec(CompanyMultiNodeConfig)
 	with BenchmarkMultiNodeSpec
 	//Specifies the table setup
-	with DefaultCompanyBenchmark
+	with CompanyBenchmark
 	//Specifies the number of measurements/warmups
-	with Test10PublicPriorityConfig {
+	with DefaultPriorityConfig {
 
-	override val benchmarkQuery = "query3"
-	override val benchmarkNumber: Int = 0
-
-	override val waitForData = 30000 //ms
+	override val benchmarkQuery = "3"
 
 
 	import CompanyMultiNodeConfig._
-	def initialParticipants = roles.size
 
 	//Setup query environment
 	val publicHost = RemoteHost("public-host", node(rolePublic))
@@ -56,7 +52,7 @@ class CompanyBenchmark3 extends MultiNodeSpec(CompanyMultiNodeConfig)
 
 	type ResultType = idb.schema.company.Employee
 
-	object ClientNode extends ReceiveNode[ResultType] {
+	object ClientNode extends ReceiveNode[ResultType]("client") {
 		override def relation(): Relation[ResultType] = {
 			//Write an i3ql query...
 			import BaseCompany._
@@ -115,10 +111,6 @@ class CompanyBenchmark3 extends MultiNodeSpec(CompanyMultiNodeConfig)
 			val r : idb.Relation[ResultType] =
 			ROOT(clientHost, query)
 			r
-		}
-
-		override def eventStartTime(e: ResultType): Long = {
-			e.timestamp
 		}
 	}
 

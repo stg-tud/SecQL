@@ -2,33 +2,16 @@ package sae.benchmark.hospital
 
 import sae.benchmark.BenchmarkConfig
 
-/**
-  * Created by mirko on 08.11.16.
-  */
 trait HospitalConfig extends BenchmarkConfig {
 
-}
+	override val debugMode: Boolean = false
 
-trait Measure25000Config extends HospitalConfig {
-	override val benchmarkConfig : String = "measure-25000"
-	override val measureIterations : Int = 25000
-	override val warmup = true
-}
+	override val benchmarkGroup = "hospital"
 
-trait Measure50000Config extends HospitalConfig {
-	override val benchmarkConfig : String = "measure-50000"
-	override val measureIterations : Int = 50000
-	override val warmup = true
-}
+	override val doWarmup: Boolean = true
+	override val iterations: Int = 50000
 
-trait Measure100000Config extends HospitalConfig {
-	override val benchmarkConfig : String = "measure-100000"
-	override val measureIterations : Int = 100000
-	override val warmup = true
-}
+	override val mongoTransferRecords: Boolean = true
+	override val mongoConnectionString: String = "mongodb://server.hospital.i3ql:27017"
 
-trait TestConfig1 extends HospitalConfig {
-	override val benchmarkConfig : String = "test-10"
-	override val measureIterations : Int = 10
-	override val warmup = false
 }

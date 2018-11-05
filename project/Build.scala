@@ -72,5 +72,7 @@ object sae extends Build {
 
 	val akkaVersion = "2.4.4"
 
+	val logbackVersion = "1.2.3"
+
 	val lmsVersion = "latest.integration"
 }

@@ -19,7 +19,7 @@ NAMESPACE_NAME=tpch.i3ql
 ../lib/aws-delete-service.sh $CLUSTER_NAME process-private $NAMESPACE_NAME
 ../lib/aws-delete-service.sh $CLUSTER_NAME client $NAMESPACE_NAME
 
-../lib/aws-ecs-deregister-task-definitions.sh i3ql-company-server
+../lib/aws-ecs-deregister-task-definitions.sh i3ql-tpch-server
 ../lib/aws-ecs-deregister-task-definitions.sh i3ql-tpch-data-customer
 ../lib/aws-ecs-deregister-task-definitions.sh i3ql-tpch-data-nation
 ../lib/aws-ecs-deregister-task-definitions.sh i3ql-tpch-data-orders

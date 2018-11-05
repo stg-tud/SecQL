@@ -6,7 +6,10 @@ organization := "de.tud.cs.st"
 
 libraryDependencies ++= Seq(
     "EPFL" %% "lms" % lmsVersion,
-    "com.typesafe.akka" %% "akka-multi-node-testkit" % akkaVersion
+    "com.typesafe.akka" %% "akka-multi-node-testkit" % akkaVersion,
+    "com.typesafe.akka" %% "akka-slf4j" % akkaVersion,
+    "ch.qos.logback" % "logback-classic" % logbackVersion,
+    "org.mongodb.scala" %% "mongo-scala-driver" % "2.4.2"
 )
 
 parallelExecution in Test := false
