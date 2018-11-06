@@ -25,7 +25,7 @@ trait BenchmarkConfig {
 
 	// Append unique id, if runs shall be distinguishable
 	def executionId: String = {
-		s"$benchmarkGroup.$benchmarkQuery"
+		s"$benchmarkGroup.$benchmarkQuery.xxxx"
 	}
 
 }
