@@ -39,7 +39,7 @@ class HospitalBenchmark4 extends MultiNodeSpec(HospitalMultiNodeConfig)
 			personHost -> (1, Set("red")),
 			patientHost -> (1, Set("red", "green", "purple")),
 			knowledgeHost -> (1, Set("purple")),
-			clientHost -> (0, Set("red", "green", "purple"))
+			clientHost -> (0, Set("white"))
 		)
 	)
 
