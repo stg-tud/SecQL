@@ -110,6 +110,12 @@ trait Benchmark extends MultiNodeSpec with BenchmarkConfig {
 
 		protected def measurementFinished(): Unit = {
 			enterSection("measurement-finished")
+			log.info("Recording configuration")
+			val configRecorder = new ConfigRecorder(executionId, nodeName, new MongoTransport[ConfigRecord](mongoConnectionString, ConfigRecord))
+			configRecorder.log(Benchmark.this)
+
+			log.info("Transferring recordings to central database")
+			configRecorder.terminateAndTransfer()
 			performanceRecorder.terminateAndTransfer()
 			eventRecorder.terminateAndTransfer()
 			if (throughputRecorder != null)
