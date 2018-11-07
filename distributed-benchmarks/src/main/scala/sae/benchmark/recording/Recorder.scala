@@ -27,6 +27,7 @@ class Recorder[T](
 	if (!dir.exists()) dir.mkdirs()
 
 	private val file = new File(s"$path/$executionId.$logType.$nodeName.log")
+	file.deleteOnExit()
 	private val writer = new PrintWriter(file)
 
 	def log(data: T): Unit = {
