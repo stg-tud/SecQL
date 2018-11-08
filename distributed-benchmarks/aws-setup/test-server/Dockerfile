@@ -4,7 +4,7 @@ FROM dsoko2/i3ql-lms:0.3.0-8u181-jdk
 RUN apt-get update && apt-get install -y openssh-server rsync git-core dialog
 RUN mkdir /var/run/sshd
 # Disable known host checking: Makes vulnurable towards man-in-the-middle attacks!
-RUN sed -ir 's/#(\s*StrictHostKeyChecking\s*)ask/\1no/' /etc/ssh/ssh_config
+RUN sed -i 's/#   StrictHostKeyChecking ask/   StrictHostKeyChecking no/' /etc/ssh/ssh_config
 
 # Configure ssh identity
 COPY test-server.key /root/.ssh/id_rsa

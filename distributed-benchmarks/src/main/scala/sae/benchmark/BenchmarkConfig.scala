@@ -15,7 +15,7 @@ trait BenchmarkConfig {
 
 	val waitForDeploymentMs = 10000L
 	val waitForResetMs = 5000L
-	val waitForBeingColdMs = 2000L
+	val waitForBeingColdMs = 5000L
 
 	val throughputRecordingIntervalMs = 100
 	val performanceRecordingIntervalMs = 100
@@ -25,7 +25,7 @@ trait BenchmarkConfig {
 
 	// Append unique id, if runs shall be distinguishable
 	def executionId: String = {
-		s"$benchmarkGroup.$benchmarkQuery"
+		s"$benchmarkGroup.$benchmarkQuery.xxxx"
 	}
 
 }
