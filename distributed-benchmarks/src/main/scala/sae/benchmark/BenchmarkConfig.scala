@@ -15,7 +15,7 @@ trait BenchmarkConfig {
 
 	val waitForDeploymentMs = 10000L
 	val waitForResetMs = 5000L
-	val waitForBeingColdMs = 2000L
+	val waitForBeingColdMs = 5000L
 
 	val throughputRecordingIntervalMs = 100
 	val performanceRecordingIntervalMs = 100
