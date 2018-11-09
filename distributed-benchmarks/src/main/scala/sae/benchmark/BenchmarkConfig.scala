@@ -13,7 +13,7 @@ trait BenchmarkConfig {
 	val iterations: Int
 	val doWarmup: Boolean
 
-	val waitForDeploymentMs = 10000L
+	val waitForDeploymentMs = 15000L
 	val waitForResetMs = 5000L
 	val waitForBeingColdMs = 5000L
 
