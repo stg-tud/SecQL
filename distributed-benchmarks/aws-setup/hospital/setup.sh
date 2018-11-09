@@ -15,11 +15,11 @@ aws ecs create-cluster\
 
 # Make sure cpu and memory combination exist in fargate
 # https://docs.aws.amazon.com/de_de/cli/latest/reference/ecs/register-task-definition.html#options
-../lib/aws-ecs-register-task-definition.sh i3ql-hospital-server $SERVER_REPO 0.5vcpu 1GB
-../lib/aws-ecs-register-task-definition.sh i3ql-hospital-patient $CLIENT_REPO 0.25vcpu 1GB
-../lib/aws-ecs-register-task-definition.sh i3ql-hospital-person $CLIENT_REPO 0.25vcpu 2GB
-../lib/aws-ecs-register-task-definition.sh i3ql-hospital-knowledge $CLIENT_REPO 0.5vcpu 3GB
-../lib/aws-ecs-register-task-definition.sh i3ql-hospital-client $CLIENT_REPO 0.5vcpu 4GB
+../lib/aws-ecs-register-task-definition.sh i3ql-hospital-server $SERVER_REPO 1vcpu 2GB
+../lib/aws-ecs-register-task-definition.sh i3ql-hospital-patient $CLIENT_REPO 0.5vcpu 1GB
+../lib/aws-ecs-register-task-definition.sh i3ql-hospital-person $CLIENT_REPO 0.5vcpu 1GB
+../lib/aws-ecs-register-task-definition.sh i3ql-hospital-knowledge $CLIENT_REPO 0.5vcpu 2GB
+../lib/aws-ecs-register-task-definition.sh i3ql-hospital-client $CLIENT_REPO 1vcpu 2GB
 
 
 ../lib/aws-ec2-create-subnet.sh $VPC_ID $CLUSTER_NAME $CIDR

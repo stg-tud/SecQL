@@ -1,7 +1,7 @@
 FROM dsoko2/i3ql-lms:0.3.0-8u181-jdk
 
-# Install SSH, RSYNC, git and dialog
-RUN apt-get update && apt-get install -y openssh-server rsync git-core dialog
+# Install SSH, RSYNC, git, vim, nano and dialog
+RUN apt-get update && apt-get install -y openssh-server rsync git-core vim nano dialog
 RUN mkdir /var/run/sshd
 # Disable known host checking: Makes vulnurable towards man-in-the-middle attacks!
 RUN sed -i 's/#   StrictHostKeyChecking ask/   StrictHostKeyChecking no/' /etc/ssh/ssh_config
