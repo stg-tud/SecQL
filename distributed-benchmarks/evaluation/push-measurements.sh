@@ -39,6 +39,7 @@ done
 
 dialog --msgbox "Going now to push exported data to remote repo $REMOTE_REPO branch $ID" 15 50
 git remote add origin $REMOTE_REPO
+git pull origin $ID
 git add ./*.json
 git commit -m "Measurements $ID via push-measurements.sh"
 git push -u origin $ID
