@@ -27,11 +27,18 @@ trait Benchmark extends MultiNodeSpec with BenchmarkConfig {
 			if (mongoTransferRecords) new MongoTransport[PerformanceRecord](mongoConnectionString, PerformanceRecord) else null)
 		var throughputRecorder: ThroughputRecorder = _
 
+		private var currentSection: String = null
 		private def enterSection(section: String): Unit = {
-			log.info(s"Waiting for section '$section' on node '$nodeName'")
+			if (currentSection != null) {
+				eventRecorder.log(s"section.$currentSection.exit")
+				log.info(s"Exiting section '$currentSection' on node '$nodeName'")
+			}
+
 			enterBarrier(section: String)
-			eventRecorder.log(s"section.$section")
+
+			eventRecorder.log(s"section.$section.enter")
 			log.info(s"Entering section '$section' on node '$nodeName'")
+			currentSection = section
 		}
 
 		def exec(): Unit = {
