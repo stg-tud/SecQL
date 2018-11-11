@@ -42,7 +42,7 @@ class HospitalBenchmark1 extends MultiNodeSpec(HospitalMultiNodeConfig)
 		)
 	)
 
-	override type ResultType = (Long, Int, String, String)
+	override type ResultType = (Int, String, String)
 
 	object ClientNode extends ReceiveNode[ResultType]("client") {
 		override def relation(): Relation[ResultType] = {
@@ -59,22 +59,22 @@ class HospitalBenchmark1 extends MultiNodeSpec(HospitalMultiNodeConfig)
 			val knowledgeDB: Rep[Query[KnowledgeType]] =
 				REMOTE GET(knowledgeHost, "knowledge-db", Taint("purple"))
 
-			val q1 =
+			val query1 =
 				SELECT DISTINCT (
-					(person: Rep[PersonType], patientSymptom: Rep[(PatientType, String)], knowledgeData: Rep[KnowledgeType]) => (person._1, person._2.personId, person._2.name, knowledgeData.diagnosis)
-					) FROM(
-					personDB, UNNEST(patientDB, (x: Rep[PatientType]) => x.symptoms), knowledgeDB
+					(person: Rep[PersonType], patientSymptom: Rep[(PatientType, String)], knowledgeData: Rep[KnowledgeType]) =>
+						(person.personId, person.name, knowledgeData.diagnosis)
+					) FROM(personDB, UNNEST(patientDB, (x: Rep[PatientType]) => x.symptoms), knowledgeDB
 				) WHERE (
 					(person: Rep[PersonType], patientSymptom: Rep[(PatientType, String)], knowledgeData: Rep[KnowledgeType]) =>
-						person._2.personId == patientSymptom._1.personId AND
+						person.personId == patientSymptom._1.personId AND
 							patientSymptom._2 == knowledgeData.symptom AND
 							knowledgeData.symptom == Symptoms.cough AND
-							person._2.name == "John Doe"
+							person.name == "John Doe"
 					)
 
 			//... and add ROOT. Workaround: Reclass the data to make it pushable to the client node.
 			val r: idb.Relation[ResultType] =
-				ROOT(clientHost, q1)
+				ROOT(clientHost, query1)
 			r
 		}
 	}

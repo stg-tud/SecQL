@@ -42,7 +42,7 @@ trait HospitalBenchmark extends Benchmark with HospitalConfig {
 	object Data extends HospitalTestData
 
 
-	type PersonType = (Long, Person)
+	type PersonType = Person
 	type PatientType = Patient
 	type KnowledgeType = KnowledgeData
 	type ResultType
@@ -61,9 +61,9 @@ trait HospitalBenchmark extends Benchmark with HospitalConfig {
 				count = 0
 
 			if (count == 0)
-				db += ((System.currentTimeMillis(), hospital.Person(iteration, "John Doe", 1973)))
+				db += hospital.Person(iteration, "John Doe", 1973)
 			else
-				db += ((System.currentTimeMillis(), hospital.Person(iteration, "Jane Doe", 1960)))
+				db += hospital.Person(iteration, "Jane Doe", 1960)
 
 			count += 1
 		}
