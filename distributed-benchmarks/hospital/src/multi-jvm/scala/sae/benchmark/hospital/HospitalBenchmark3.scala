@@ -23,7 +23,7 @@ class HospitalBenchmark3 extends MultiNodeSpec(HospitalMultiNodeConfig)
 	//Specifies the table setup
 	with HospitalBenchmark {
 
-	override val benchmarkQuery = "3"
+	override val benchmarkQuery = "query3"
 
 	import HospitalMultiNodeConfig._
 
