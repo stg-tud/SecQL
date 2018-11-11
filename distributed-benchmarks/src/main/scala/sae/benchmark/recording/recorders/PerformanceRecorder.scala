@@ -18,8 +18,8 @@ class PerformanceRecorder(
 	extends Recorder[PerformanceRecord](executionId, "performance", nodeName, PerformanceRecord, transport)
 		with IntervalRecorder[PerformanceRecord] {
 
-	override protected val recording: Runnable = new Runnable {
-		override def run(): Unit = {
+	override protected val recording: RecordingRunnable = new RecordingRunnable {
+		override protected def record(): Unit = {
 			log(PerformanceRecord(
 				nodeName,
 				System.currentTimeMillis(),

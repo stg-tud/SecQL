@@ -19,8 +19,8 @@ class ThroughputRecorder(
 						) extends Recorder[ThroughputRecord](executionId, "throughput", nodeName, ThroughputRecord, transport)
 	with IntervalRecorder[ThroughputRecord] {
 
-	override protected val recording: Runnable = new Runnable {
-		override def run(): Unit = {
+	override protected val recording: RecordingRunnable = new RecordingRunnable {
+		override protected def record(): Unit = {
 			evaluators.foreach({
 				case (relationName, evaluator) => {
 					log(new ThroughputRecord(
