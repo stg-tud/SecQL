@@ -70,13 +70,14 @@ for (execution in executions) {
 # Time offsets (^= measurement start) and measurement ends (^= measurement finished) per execution and node
 timeOffsets = filter(eventData, grepl("^section\\.measurement\\.enter$", event)) %>% group_by(node, execution) %>% summarize(timeOffset = median(time)) %>% ungroup
 # End time is reduced statically by 5s, since client only gets cold after for min 5s seconds nothing happened (real end might be even up to 5 seconds earlier)
+measurementStarted = filter(eventData, grepl("^section\\.measurement-recording\\.enter$", event)) %>% group_by(node, execution) %>% summarize(timeStarted = min(time)) %>% ungroup
 measurementFinished = filter(eventData, grepl("^section\\.measurement-finished\\.enter$", event)) %>% group_by(node, execution) %>% summarize(timeFinished = median(time) - 4000) %>% ungroup
-offsetNFinish = inner_join(timeOffsets, measurementFinished, by = c("node", "execution"))
+offsetStartFinish = inner_join(timeOffsets, measurementStarted, by = c("node", "execution")) %>% inner_join(measurementFinished, by = c("node", "execution"))
 
 # Apply time offsets and measurement end to the data
-eventData = left_join(eventData, offsetNFinish, by = c("node", "execution")) %>% mutate(time = time - timeOffset) %>% arrange(time)
-performanceData = left_join(performanceData, offsetNFinish, by = c("node", "execution")) %>% filter(time > timeOffset & time < timeFinished) %>% mutate(time = time - timeOffset) %>% arrange(time)
-throughputData = left_join(throughputData, offsetNFinish, by = c("node", "execution")) %>% filter(time > timeOffset & time < timeFinished) %>% mutate(time = time - timeOffset) %>% arrange(time)
+eventData = left_join(eventData, offsetStartFinish, by = c("node", "execution")) %>% mutate(time = time - timeOffset) %>% arrange(time)
+performanceData = left_join(performanceData, offsetStartFinish, by = c("node", "execution")) %>% filter(time >= timeStarted & time <= timeFinished) %>% mutate(time = time - timeOffset) %>% arrange(time)
+throughputData = left_join(throughputData, offsetStartFinish, by = c("node", "execution")) %>% filter(time >= timeStarted & time <= timeFinished) %>% mutate(time = time - timeOffset) %>% arrange(time)
 
 # Add relation field to throughputData
 throughputData = mutate(throughputData, relation = paste(node, relationName, sep="#"))
@@ -86,10 +87,16 @@ performanceData = group_by(performanceData, node, execution) %>% mutate(cpuTime 
 # Combine timespan events
 eventSpanEnters = filter(eventData, grepl("\\.enter$", event)) %>% mutate(event = sub("\\.enter$", "", event)) %>% rename(enterTime = time)
 eventSpanExits = filter(eventData, grepl("\\.exit$", event)) %>% mutate(event = sub("\\.exit$", "", event)) %>% rename(exitTime = time)
-eventSpanData = inner_join(eventSpanEnters, eventSpanExits, by = c("node", "execution", "event", "timeOffset")) %>% mutate(duration = exitTime - enterTime)
 
 # Init section events data
-sectionSpanData = filter(eventSpanData, grepl("^section\\.", event))
+sectionSpanData = inner_join(eventSpanEnters, eventSpanExits, by = c("node", "execution", "event", "timeOffset")) %>% mutate(duration = exitTime - enterTime) %>% filter(grepl("^section\\.", event))
+
+# Init latency events data
+latencySpanEnters = rename(eventSpanEnters, enterNode = node) %>% select(-timeOffset, -timeStarted, -timeFinished) %>% filter(grepl("^latency\\.", event))
+latencySpanExits = rename(eventSpanExits, exitNode = node) %>% select(-timeOffset, -timeStarted, -timeFinished) %>% filter(grepl("^latency\\.", event))
+latencyData = inner_join(latencySpanEnters, latencySpanExits, by = c("execution", "event")) %>% mutate(duration = exitTime - enterTime)
+# In case of multi source events, only the latest source event is interesting, since it blocked all previous ones
+latencyData = group_by(latencyData, execution, event) %>% filter(enterTime == max(enterTime)) %>% ungroup %>% mutate(trace = sub("^.*\\.", "", event))
 ```
 
 # Execution timetable
@@ -147,6 +154,12 @@ print(ggplot(throughputData, aes(time / 1000, eventCount, colour=relation, group
         xlab("Time [s]") + 
         ylab("Number of Events processed") +
         facet_wrap(~execution, scales="free"))
+print(ggplot(throughputData, aes(time / 1000, eventCount, colour=execution, group=execution)) +
+        geom_line() +
+        ggtitle("Event Count") +
+        xlab("Time [s]") + 
+        ylab("Number of Events processed") +
+        facet_wrap(~relation, scales="free"))
 ```
 
 ```{R}
@@ -172,6 +185,12 @@ print(ggplot(throughputData, aes(time / 1000, entryCount, colour=relation, group
         xlab("Time [s]") + 
         ylab("Number of Entries in the Relation") +
         facet_wrap(~execution, scales="free"))
+print(ggplot(throughputData, aes(time / 1000, entryCount, colour=execution, group=execution)) +
+        geom_line() +
+        ggtitle("Entry Count") +
+        xlab("Time [s]") + 
+        ylab("Number of Entries in the Relation") +
+        facet_wrap(~relation, scales="free"))
 ```
 
 ```{R}
@@ -193,6 +212,25 @@ print(ggplot(entryRateData, aes(time / 1000, intervalEntryCount / (timeSpan / 10
 # Latency
 
 ```{R}
+print(ggplot(latencyData, aes(exitTime / 1000, duration,  colour=trace, group=trace)) +
+        geom_point() +
+        geom_line() +
+        ggtitle("Latency over Time") +
+        xlab("Result Time [s]") + 
+        ylab("Latency [ms]") +
+        facet_wrap(~execution, scales="free"))
+```
+
+```{R}
+durPlot(df = latencyData, start = "enterTime", end="exitTime", facet = TRUE, plot_type = "density", group = "execution", title = TRUE, title_density = "Latency Distribution")
+print(ggplot(latencyData, aes(duration, colour=trace, group=trace)) +
+        geom_histogram(aes(y=..density..), binwidth=20) +
+        geom_density() +
+        geom_vline(aes(xintercept=mean(duration / 1000))) +
+        ggtitle("Latency Distribution") +
+        xlab("Latency [ms]") + 
+        ylab("") +
+        facet_wrap(~execution, scales="free"))
 ```
 
 # Configuration
