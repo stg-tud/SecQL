@@ -1,14 +1,11 @@
 package idb.schema.company
 
-import idb.schema.{Benchmarkable, BenchmarkableSchema}
-
-import scala.virtualization.lms.common.StructExp
 import scala.language.implicitConversions
+import scala.virtualization.lms.common.StructExp
 
 case class FP(factoryId : Int, productId : Int)
-	extends Benchmarkable
 
-trait FPSchema extends BenchmarkableSchema {
+trait FPSchema {
 	val IR: StructExp
 
 	import IR._

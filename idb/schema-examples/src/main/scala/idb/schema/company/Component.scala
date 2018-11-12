@@ -1,16 +1,13 @@
 package idb.schema.company
 
-import idb.schema.{Benchmarkable, BenchmarkableSchema}
-
+import scala.language.implicitConversions
 import scala.virtualization.lms.common.StructExp
 
-import scala.language.implicitConversions
-
 case class Component(id : Int, name : String, material : String)
-	extends Nameable with Benchmarkable
+	extends Nameable
 
 trait ComponentSchema
-	extends NameableSchema with BenchmarkableSchema {
+	extends NameableSchema {
 
 	val IR: StructExp
 

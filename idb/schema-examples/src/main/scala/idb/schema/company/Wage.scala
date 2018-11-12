@@ -1,14 +1,11 @@
 package idb.schema.company
 
-import idb.schema.{Benchmarkable, BenchmarkableSchema}
-
-import scala.virtualization.lms.common.StructExp
 import scala.language.implicitConversions
+import scala.virtualization.lms.common.StructExp
 
 case class Wage(employeeId : Int, wagePerHour : Double, hoursPerMonth : Double)
-	extends Benchmarkable
 
-trait WageSchema extends BenchmarkableSchema {
+trait WageSchema {
 	val IR: StructExp
 
 	import IR._
@@ -21,7 +18,6 @@ trait WageSchema extends BenchmarkableSchema {
 		def wagePerHour: Rep[Double] = field[Double](p, "wagePerHour")
 
 		def hoursPerMonth: Rep[Double] = field[Double](p, "hoursPerMonth")
-
 
 	}
 
