@@ -13,7 +13,7 @@ class HospitalBenchmark4MultiJvmNode4 extends HospitalBenchmark4
 
 object HospitalBenchmark4 {} // this object is necessary for multi-node testing
 
-//Everything (except the tables) is on the client
+//Everything (except the tables) is on the patientHost
 class HospitalBenchmark4 extends MultiNodeSpec(HospitalMultiNodeConfig)
 	with BenchmarkMultiNodeSpec
 	//Specifies the table setup
