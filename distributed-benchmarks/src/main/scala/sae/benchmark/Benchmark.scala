@@ -7,6 +7,8 @@ import idb.{BagTable, Relation, Table}
 import sae.benchmark.recording.mongo.MongoTransport
 import sae.benchmark.recording.recorders._
 
+import scala.concurrent.TimeoutException
+
 /**
   * Created by mirko on 07.11.16.
   */
@@ -28,6 +30,9 @@ trait Benchmark extends MultiNodeSpec with BenchmarkConfig {
 		var throughputRecorder: ThroughputRecorder = _
 
 		private var currentSection: String = null
+
+		private var isMeasurement: Boolean = false
+
 		private def enterSection(section: String): Unit = {
 			if (currentSection != null) {
 				eventRecorder.log(s"section.$currentSection.exit")
@@ -39,6 +44,11 @@ trait Benchmark extends MultiNodeSpec with BenchmarkConfig {
 			eventRecorder.log(s"section.$section.enter")
 			log.info(s"Entering section '$section' on node '$nodeName'")
 			currentSection = section
+		}
+
+		protected def logLatency(id: Int, trace: String, isEnter: Boolean = true): Unit = {
+			if (isMeasurement && id % latencyRecordingInterval == 0)
+				eventRecorder.log(s"latency.$id.$trace.${if (isEnter) "enter" else "exit"}")
 		}
 
 		def exec(): Unit = {
@@ -109,6 +119,7 @@ trait Benchmark extends MultiNodeSpec with BenchmarkConfig {
 
 		protected def measurement(): Unit = {
 			enterSection("measurement")
+			isMeasurement = true
 		}
 
 		protected def measurementAfterBurn(): Unit = {
@@ -117,6 +128,8 @@ trait Benchmark extends MultiNodeSpec with BenchmarkConfig {
 
 		protected def measurementFinished(): Unit = {
 			enterSection("measurement-finished")
+			isMeasurement = false
+
 			log.info("Recording configuration")
 			val configRecorder = new ConfigRecorder(executionId, nodeName, new MongoTransport[ConfigRecord](mongoConnectionString, ConfigRecord))
 			configRecorder.log(Benchmark.this)
@@ -183,14 +196,32 @@ trait Benchmark extends MultiNodeSpec with BenchmarkConfig {
 
 		protected var countEvaluator: CountEvaluator[Domain] = _
 
-		protected def sleepUntilCold() {
+		/**
+		  * Blocks the thread and checks every `waitForBeingColdMs` milliseconds, whether the specified `expectedEvents`
+		  * was reached. If `expectedEvents` is defined as 0 or negative, the relation is assumed to be cold, if the
+		  * eventCound didn't change over the last interval.
+		  *
+		  * @param expectedEvents
+		  */
+		protected def sleepUntilCold(expectedEvents: Int = 0) {
 			var lastEventCount = 0L
+			var lastEventCountChange = System.currentTimeMillis()
 			do {
-				lastEventCount = countEvaluator.eventCount
-				log.info(s"Waiting to get cold... ($lastEventCount events)")
-				Thread.sleep(waitForBeingColdMs)
-			} while (lastEventCount != countEvaluator.eventCount)
-			log.info(s"I am cold ($lastEventCount events)")
+				if (lastEventCount != countEvaluator.eventCount) {
+					lastEventCount = countEvaluator.eventCount
+					lastEventCountChange = System.currentTimeMillis()
+				}
+				else if (lastEventCountChange + waitForBeingColdTimeoutMs < System.currentTimeMillis())
+					throw new TimeoutException(s"Receiving relation becoming cold timeout exceeded (expected events: $expectedEvents, seen: ${countEvaluator.eventCount})")
+				log.info(s"Waiting for receiving relation to become cold... ($lastEventCount events of $expectedEvents)")
+
+				Thread.sleep(waitForBeingColdIntervalMs)
+
+				if (expectedEvents > 0 && expectedEvents < countEvaluator.eventCount)
+					throw new IllegalArgumentException(s"More events measured in receiving relation than expected (expected: $expectedEvents, seen: ${countEvaluator.eventCount})")
+			} while (expectedEvents > 0 && expectedEvents > countEvaluator.eventCount ||
+				expectedEvents <= 0 && lastEventCount != countEvaluator.eventCount)
+			log.info(s"Receiving relation is cold (${countEvaluator.eventCount} events of $expectedEvents)")
 		}
 
 		override protected def compile(): Unit = {

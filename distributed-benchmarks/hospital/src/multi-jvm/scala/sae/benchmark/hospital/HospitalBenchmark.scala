@@ -1,9 +1,13 @@
 package sae.benchmark.hospital
 
 import idb.Table
+import idb.metrics.ThroughputEvaluator
+import idb.observer.Observer
+import idb.query.RemoteHost
 import idb.schema.hospital
 import idb.schema.hospital._
 import sae.benchmark.Benchmark
+import sae.benchmark.hospital.HospitalMultiNodeConfig._
 
 /**
   * Barriers that are used in the hospital benchmark:
@@ -45,27 +49,26 @@ trait HospitalBenchmark extends Benchmark with HospitalConfig {
 	type PersonType = Person
 	type PatientType = Patient
 	type KnowledgeType = KnowledgeData
-	type ResultType
+	type ResultType = (Int, String, String)
 
-	val numberOfJohnDoes = 2500
+	//Setup query environment
+	val personHost = RemoteHost("personHost", node(node1))
+	val patientHost = RemoteHost("patientHost", node(node2))
+	val knowledgeHost = RemoteHost("knowledgeHost", node(node3))
+	val clientHost = RemoteHost("clientHost", node(node4))
 
 	object PersonDBNode extends DBNode("person", Seq("person-db"), 0, iterations) {
 
-		private val interval = 4//iterations / numberOfJohnDoes
-
-		private var count = 0
-
 		override protected def iteration(dbs: Seq[Table[Any]], iteration: Int): Unit = {
 			val db = dbs.head
-			if (count == interval)
-				count = 0
 
-			if (count == 0)
+			if (iteration % personSelectionInterval == 0) {
+				// These records are relevant for the selection results of query1 - query4
+				logLatency(iteration / personSelectionInterval, "query")
 				db += hospital.Person(iteration, "John Doe", 1973)
+			}
 			else
 				db += hospital.Person(iteration, "Jane Doe", 1960)
-
-			count += 1
 		}
 	}
 
@@ -75,6 +78,10 @@ trait HospitalBenchmark extends Benchmark with HospitalConfig {
 
 		override protected def iteration(dbs: Seq[Table[Any]], iteration: Int): Unit = {
 			val db = dbs.head
+
+			// These records are relevant for the selection results of query1 - query4
+			if (iteration % personSelectionInterval == 0)
+				logLatency(iteration / personSelectionInterval, "query")
 			db += hospital.Patient(iteration, 4, 2011, Seq(Symptoms.cough, Symptoms.chestPain))
 		}
 	}
@@ -87,6 +94,34 @@ trait HospitalBenchmark extends Benchmark with HospitalConfig {
 			val db = dbs.head
 			db += lungCancer1
 		}
+	}
+
+	trait HospitalReceiveNode extends ReceiveNode[ResultType] {
+
+		override def measurementRecordingInit(recorderRelations: Map[String, ThroughputEvaluator[_]] = null): Unit = {
+			super.measurementRecordingInit(recorderRelations)
+			setupLatencyRecording()
+		}
+
+		private def setupLatencyRecording(): Unit = {
+			r.addObserver(new Observer[ResultType] {
+				override def added(v: (Int, String, String)): Unit = {
+					logLatency(v._1 / personSelectionInterval, "query", false)
+				}
+
+				override def addedAll(vs: Seq[(Int, String, String)]): Unit = {}
+
+				override def updated(oldV: (Int, String, String), newV: (Int, String, String)): Unit = {}
+
+				override def removed(v: (Int, String, String)): Unit = {}
+
+				override def removedAll(vs: Seq[(Int, String, String)]): Unit = {}
+			})
+		}
+
+		override protected def sleepUntilCold(eventNumber: Int = 0): Unit =
+			super.sleepUntilCold(iterations / personSelectionInterval)
+
 	}
 
 }

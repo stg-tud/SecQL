@@ -1,14 +1,10 @@
 package sae.benchmark.hospital
 
 import akka.remote.testkit.MultiNodeSpec
-import akka.testkit.ImplicitSender
-import idb.algebra
-import idb.algebra.print.RelationalAlgebraPrintPlan
+import idb.query.QueryEnvironment
 import idb.query.taint._
-import idb.query.{QueryEnvironment, RemoteHost}
-import idb.syntax.iql.IR
-
 import sae.benchmark.BenchmarkMultiNodeSpec
+import sae.benchmark.hospital.HospitalMultiNodeConfig._
 
 class HospitalBenchmark3MultiJvmNode1 extends HospitalBenchmark3
 class HospitalBenchmark3MultiJvmNode2 extends HospitalBenchmark3
@@ -25,14 +21,6 @@ class HospitalBenchmark3 extends MultiNodeSpec(HospitalMultiNodeConfig)
 
 	override val benchmarkQuery = "query3"
 
-	import HospitalMultiNodeConfig._
-
-	//Setup query environment
-	val personHost = RemoteHost("personHost", node(node1))
-	val patientHost = RemoteHost("patientHost", node(node2))
-	val knowledgeHost = RemoteHost("knowledgeHost", node(node3))
-	val clientHost = RemoteHost("clientHost", node(node4))
-
 	implicit val env: QueryEnvironment = QueryEnvironment.create(
 		system,
 		Map(
@@ -43,9 +31,7 @@ class HospitalBenchmark3 extends MultiNodeSpec(HospitalMultiNodeConfig)
 		)
 	)
 
-	override type ResultType = (Int, String, String)
-
-	object ClientNode extends ReceiveNode[ResultType]("client") {
+	object ClientNode extends ReceiveNode[ResultType]("client") with HospitalReceiveNode {
 		override def relation(): idb.Relation[ResultType] = {
 			//Write an i3ql query...
 			import BaseHospital._
