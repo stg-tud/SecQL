@@ -34,6 +34,11 @@ class Recorder[T](
 		writer.println(format.toLine(data))
 	}
 
+	/**
+	  * Terminates recording and transfers all records. Optionally, a manipulation function can be provided in the
+	  * property `transferManipulation`, which is called for each record. It's returned sequence of records is
+	  * transferred instead of the original record.
+	  */
 	def terminateAndTransfer(): Unit = {
 		writer.close()
 
@@ -50,10 +55,16 @@ class Recorder[T](
 			}) {
 				val data: T = format.fromLine(line)
 
-				transport.transfer(data)
+				if (transferManipulation == null)
+					transport.transfer(data)
+				else
+					transferManipulation(data) foreach (record =>
+						transport.transfer(record))
 			}
 
 			transport.close()
 		}
 	}
+
+	var transferManipulation: (T) => Seq[T] = null
 }
