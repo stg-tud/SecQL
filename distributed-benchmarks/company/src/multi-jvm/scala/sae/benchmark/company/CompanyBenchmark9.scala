@@ -1,12 +1,12 @@
 package sae.benchmark.company
 
 import akka.remote.testkit.MultiNodeSpec
-import idb.{Relation, algebra}
-import idb.algebra.print.RelationalAlgebraPrintPlan
-import idb.query.taint._
-import idb.query.{QueryEnvironment, RemoteHost}
-import idb.syntax.iql.IR
+import idb.Relation
+import idb.observer.NoOpObserver
+import idb.query.QueryEnvironment
+import idb.schema.company.Supplier
 import sae.benchmark.BenchmarkMultiNodeSpec
+import sae.benchmark.company.CompanyMultiNodeConfig._
 
 class CompanyBenchmark9MultiJvmNode1 extends CompanyBenchmark9
 class CompanyBenchmark9MultiJvmNode2 extends CompanyBenchmark9
@@ -23,18 +23,10 @@ class CompanyBenchmark9 extends MultiNodeSpec(CompanyMultiNodeConfig)
 	//Specifies the number of measurements/warmups
 	with DefaultPriorityConfig {
 
-	override val benchmarkQuery = "9"
-
-	import CompanyMultiNodeConfig._
+	override val benchmarkQuery = "query9"
 
 	//Setup query environment
-	val publicHost = RemoteHost("public-host", node(rolePublic))
-	val productionHost = RemoteHost("production-host", node(roleProduction))
-	val purchasingHost = RemoteHost("purchasing-host", node(rolePurchasing))
-	val employeesHost = RemoteHost("employees-host", node(roleEmployees))
-	val clientHost = RemoteHost("clients-host", node(roleClient))
-
-	implicit val env = QueryEnvironment.create(
+	implicit val env: QueryEnvironment = QueryEnvironment.create(
 		system,
 		Map(
 			publicHost -> (priorityPublic, permissionsPublic),
@@ -45,60 +37,110 @@ class CompanyBenchmark9 extends MultiNodeSpec(CompanyMultiNodeConfig)
 		)
 	)
 
-	def internalBarrier(name : String): Unit = {
-		enterBarrier(name)
+	type ResultType = Supplier
+
+	def getLatencyIdBySupplierId(supplierId: Int): Int =
+		supplierId / 10 * 2 + supplierId % 10 + 4
+
+	object PublicDBNode extends PublicDBNode
+
+	object ProductionDBNode extends ProductionDBNode {
+		override protected def addComponentHook(componentId: Int): Unit = {
+			if (componentId < iterations && componentId % 10 >= 4 && componentId % 10 <= 5)
+				logLatency(getLatencyIdBySupplierId(componentId), "query")
+			else if (componentId >= iterations && (componentId - iterations) % 10 >= 4 && (componentId - iterations) % 10 <= 5)
+				logLatency(getLatencyIdBySupplierId(componentId - iterations), "query")
+		}
 	}
 
-	type ResultType = Long
+	object PurchasingDBNode extends PurchasingDBNode {
+		override protected def addSupplierHook(supplierId: Int): Unit = {
+			if (supplierId % 10 >= 4 && supplierId % 10 <= 5)
+				logLatency(getLatencyIdBySupplierId(supplierId), "query")
+		}
+
+		override protected def addSCHook(supplierId: Int, componentId: Int): Unit = {
+			if (supplierId % 10 >= 4 && supplierId % 10 <= 5)
+				logLatency(getLatencyIdBySupplierId(supplierId), "query")
+		}
+	}
+
+	object EmployeesDBNode extends EmployeesDBNode
 
 	object ClientNode extends ReceiveNode[ResultType]("client") {
 		override def relation(): Relation[ResultType] = {
 			//Write an i3ql query...
 			import BaseCompany._
+			import idb.schema.company._
 			import idb.syntax.iql.IR._
 			import idb.syntax.iql._
-			import idb.schema.company._
 
 
-			val products : Rep[Query[Product]] = RECLASS (REMOTE GET (publicHost, "product-db"), labelPublic)
-			val factories : Rep[Query[Factory]] = RECLASS (REMOTE GET (publicHost, "factory-db"), labelPublic)
+			val products: Rep[Query[Product]] = RECLASS(REMOTE GET(publicHost, "product-db"), labelPublic)
+			val factories: Rep[Query[Factory]] = RECLASS(REMOTE GET(publicHost, "factory-db"), labelPublic)
 
-			val components : Rep[Query[Component]] = RECLASS (REMOTE GET (productionHost, "component-db"), labelProduction)
-			val pcs : Rep[Query[PC]] = RECLASS (REMOTE GET (productionHost, "pc-db"), labelProduction)
-			val fps : Rep[Query[FP]] = RECLASS (REMOTE GET (productionHost, "fp-db"), labelProduction)
+			val components: Rep[Query[Component]] = RECLASS(REMOTE GET(productionHost, "component-db"), labelProduction)
+			val pcs: Rep[Query[PC]] = RECLASS(REMOTE GET(productionHost, "pc-db"), labelProduction)
+			val fps: Rep[Query[FP]] = RECLASS(REMOTE GET(productionHost, "fp-db"), labelProduction)
 
-			val suppliers : Rep[Query[Supplier]] = RECLASS (REMOTE GET (purchasingHost, "supplier-db"), labelPurchasing)
-			val scs : Rep[Query[SC]] = RECLASS (REMOTE GET (purchasingHost, "sc-db"), labelPurchasing)
+			val suppliers: Rep[Query[Supplier]] = RECLASS(REMOTE GET(purchasingHost, "supplier-db"), labelPurchasing)
+			val scs: Rep[Query[SC]] = RECLASS(REMOTE GET(purchasingHost, "sc-db"), labelPurchasing)
 
-			val employees : Rep[Query[Employee]] = RECLASS (REMOTE GET (employeesHost, "employee-db"), labelEmployees)
-			val fes : Rep[Query[FE]] = RECLASS (REMOTE GET (employeesHost, "fe-db"), labelEmployees)
+			val employees: Rep[Query[Employee]] = RECLASS(REMOTE GET(employeesHost, "employee-db"), labelEmployees)
+			val fes: Rep[Query[FE]] = RECLASS(REMOTE GET(employeesHost, "fe-db"), labelEmployees)
 
 
 			val qa =
-				SELECT ((s : Rep[Supplier]) => s.id) FROM suppliers WHERE (
-					(s : Rep[Supplier]) => s.city == "Darmstadt"
-				)
+				SELECT((s: Rep[Supplier]) =>
+					s.id
+				) FROM suppliers WHERE (
+					(s: Rep[Supplier]) =>
+						s.city == "Darmstadt"
+					)
+			// All supplier ids from Darmstadt
+			// 	- 4 <= id % 10 <= 5 (id = iteration)
 
 			val qb =
-				SELECT ((sc : Rep[SC], c : Rep[Component]) => sc.supplierId) FROM (scs, DECLASS(components, "lab:production"))  WHERE (
-					(sc : Rep[SC], c : Rep[Component]) => sc.componentId == c.id AND c.material == "Wood"
-				)
+				SELECT((sc: Rep[SC], c: Rep[Component]) =>
+					sc.supplierId
+				) FROM(scs, DECLASS(components, "lab:production")
+				) WHERE (
+					(sc: Rep[SC], c: Rep[Component]) =>
+						sc.componentId == c.id AND c.material == "Wood"
+					)
+			// All supplier ids related to components including Wood, including duplicates
+			// 	- Each supplier has two components with wood: component1Id = supplierId, component2Id = iterations + supplierId
 
 			val qab = qa INTERSECT qb
+			// All supplier ids from Darmstadt with components from Wood
 
-			val q =
-				SELECT ((id : Rep[Int], s : Rep[Supplier]) => s.timestamp) FROM (qab, suppliers) WHERE (
-					(id : Rep[Int], s : Rep[Supplier]) => id == s.id
-				)
-
-			//Compile to LMS representation (only needed for printing)
-			val query : Rep[Query[ResultType]] = q
+			val query9 =
+				SELECT((id: Rep[Int], s: Rep[Supplier]) =>
+					s
+				) FROM(qab, suppliers
+				) WHERE (
+					(id: Rep[Int], s: Rep[Supplier]) =>
+						id == s.id
+					)
 
 			//Define the root. The operators get distributed here.
-			val r : idb.Relation[ResultType] =
-			ROOT(clientHost, query)
+			val r: idb.Relation[ResultType] =
+				ROOT(clientHost, query9)
+
+			// Setup latency recording
+			r.addObserver(new NoOpObserver[ResultType] {
+				override def added(supplier: Supplier): Unit =
+					logLatency(getLatencyIdBySupplierId(supplier.id), "query", false)
+
+				override def addedAll(vs: Seq[ResultType]): Unit =
+					vs foreach (v => added(v))
+			})
+
 			r
 		}
+
+		override protected def sleepUntilCold(expectedEvents: Int): Unit =
+			super.sleepUntilCold(iterations / 10 * 2)
 	}
 
 	"Hospital Benchmark" must {
