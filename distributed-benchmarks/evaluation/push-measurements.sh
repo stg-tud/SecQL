@@ -39,10 +39,11 @@ done
 
 dialog --msgbox "Going now to push exported data to remote repo $REMOTE_REPO branch $ID" 15 50
 git remote add origin $REMOTE_REPO
+set +e # Pull branch, if it already exists, ignore if it doesn't
 git pull origin $ID
-git add ./*.json
+set -e # Re-enable exit on errors
 git commit -m "Measurements $ID via push-measurements.sh"
 git push -u origin $ID
 
 dialog --infobox "Cleaned up and done export to $ID:\n$COLLECTIONS" 15 50
-rm -r $REPO
+rm -rf $REPO

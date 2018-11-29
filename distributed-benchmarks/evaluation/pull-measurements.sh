@@ -48,4 +48,4 @@ do
 done
 
 dialog --infobox "Cleaned up and done import to $ID:$IMPORTED_COLLECTIONS" 15 50
-rm -r $REPO
+rm -rf $REPO

@@ -3,18 +3,20 @@ package sae.benchmark.company
 import idb.query.taint.Taint
 import sae.benchmark.BenchmarkConfig
 
-sealed trait CompanyConfig extends BenchmarkConfig {
+sealed trait CompanyConfig extends BenchmarkConfig with CompanyPermissionConfig {
 
 	override val debugMode: Boolean = false
 
 	override val benchmarkGroup = "company"
 
 	override val doWarmup: Boolean = true
-	override val iterations: Int = 50
+	override val iterations: Int = 5000
 
 	override val mongoTransferRecords: Boolean = true
 	override val mongoConnectionString: String = "mongodb://server.company.i3ql:27017"
+}
 
+trait CompanyPermissionConfig {
 	val priorityPublic : Int
 	val priorityProduction : Int
 	val priorityPurchasing : Int

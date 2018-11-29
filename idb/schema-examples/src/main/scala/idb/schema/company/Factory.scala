@@ -1,14 +1,11 @@
 package idb.schema.company
 
-import idb.schema.{Benchmarkable, BenchmarkableSchema}
-
 import scala.language.implicitConversions
 import scala.virtualization.lms.common.StructExp
 
 case class Factory(id : Int, city : String)
-	extends Benchmarkable
 
-trait FactorySchema extends BenchmarkableSchema {
+trait FactorySchema {
 	val IR: StructExp
 
 	import IR._
@@ -25,5 +22,3 @@ trait FactorySchema extends BenchmarkableSchema {
 	implicit def factoryToInfixOp (p: Rep[Factory]) : FactoryInfixOp =
 		FactoryInfixOp (p)
 }
-
-

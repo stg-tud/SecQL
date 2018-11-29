@@ -1,13 +1,13 @@
 package sae.benchmark.company
 
 import akka.remote.testkit.MultiNodeSpec
-import idb.{Relation, algebra}
-import idb.algebra.print.RelationalAlgebraPrintPlan
-import idb.query.taint._
-import idb.query.{QueryEnvironment, RemoteHost}
-import idb.syntax.iql.IR
+import idb.Relation
+import idb.observer.NoOpObserver
+import idb.query.QueryEnvironment
 import idb.syntax.iql.impl._
 import sae.benchmark.BenchmarkMultiNodeSpec
+import sae.benchmark.company.CompanyMultiNodeConfig._
+import sae.benchmark.recording.recorders.EventRecord
 
 class CompanyBenchmark5MultiJvmNode1 extends CompanyBenchmark5
 class CompanyBenchmark5MultiJvmNode2 extends CompanyBenchmark5
@@ -24,19 +24,10 @@ class CompanyBenchmark5 extends MultiNodeSpec(CompanyMultiNodeConfig)
 	//Specifies the number of measurements/warmups
 	with DefaultPriorityConfig {
 
-	override val benchmarkQuery = "5"
-
-
-	import CompanyMultiNodeConfig._
+	override val benchmarkQuery = "query5"
 
 	//Setup query environment
-	val publicHost = RemoteHost("public-host", node(rolePublic))
-	val productionHost = RemoteHost("production-host", node(roleProduction))
-	val purchasingHost = RemoteHost("purchasing-host", node(rolePurchasing))
-	val employeesHost = RemoteHost("employees-host", node(roleEmployees))
-	val clientHost = RemoteHost("clients-host", node(roleClient))
-
-	implicit val env = QueryEnvironment.create(
+	implicit val env: QueryEnvironment = QueryEnvironment.create(
 		system,
 		Map(
 			publicHost -> (priorityPublic, permissionsPublic),
@@ -47,82 +38,146 @@ class CompanyBenchmark5 extends MultiNodeSpec(CompanyMultiNodeConfig)
 		)
 	)
 
-	def internalBarrier(name : String): Unit = {
-		enterBarrier(name)
+	type ResultType = (Int, Int, idb.schema.company.FE)
+
+	object PublicDBNode extends PublicDBNode {
+		override protected def addProductHook(productId: Int): Unit = {
+			// Each product is produced in the factory with the same id
+			// Record all billy products here
+			if (productId < iterations)
+				logLatency(productId * latencyRecordingInterval, "queryP")
+		}
+
+		eventRecorder.transferManipulation = record => {
+			var records = Seq[EventRecord]()
+
+			if (record.event.startsWith("latency.") && record.event.endsWith(".queryP.enter")) {
+				val productId = record.event.split("\\.")(1).toInt / latencyRecordingInterval
+				for (employeeId <- productId * 10 until productId * 10 + 10)
+					if (employeeId % latencyRecordingInterval == 0)
+						records = records :+ record.copy(event = s"latency.$employeeId.query.enter")
+			}
+			else
+				records = Seq(record)
+
+			records
+		}
 	}
 
-	type ResultType = (Int, Int, idb.schema.company.FE)
+	object ProductionDBNode extends ProductionDBNode {
+		override protected def addFPHook(factoryId: Int, productId: Int): Unit = {
+			// Record all factories products here
+			if (productId < iterations)
+				logLatency(factoryId * latencyRecordingInterval, "queryFP")
+		}
+
+		eventRecorder.transferManipulation = record => {
+			var records = Seq[EventRecord]()
+
+			if (record.event.startsWith("latency.") && record.event.endsWith("queryFP.enter")) {
+				val factoryId = record.event.split("\\.")(1).toInt / latencyRecordingInterval
+				for (employeeId <- factoryId * 10 until factoryId * 10 + 10)
+					if (employeeId % latencyRecordingInterval == 0)
+						records = records :+ record.copy(event = s"latency.$employeeId.query.enter")
+			}
+			else
+				records = Seq(record)
+
+			records
+		}
+	}
+
+	object PurchasingDBNode extends PurchasingDBNode
+
+	object EmployeesDBNode extends EmployeesDBNode {
+		override protected def addFEHook(factoryId: Int, employeeId: Int): Unit = {
+			logLatency(employeeId, "queryFE")
+		}
+	}
 
 	object ClientNode extends ReceiveNode[ResultType]("client") {
 		override def relation(): Relation[ResultType] = {
 			//Write an i3ql query...
 			import BaseCompany._
+			import idb.schema.company._
 			import idb.syntax.iql.IR._
 			import idb.syntax.iql._
-			import idb.schema.company._
 
 
-			val products : Rep[Query[Product]] = RECLASS (REMOTE GET (publicHost, "product-db"), labelPublic)
-			val factories : Rep[Query[Factory]] = RECLASS (REMOTE GET (publicHost, "factory-db"), labelPublic)
+			val products: Rep[Query[Product]] = RECLASS(REMOTE GET(publicHost, "product-db"), labelPublic)
+			val factories: Rep[Query[Factory]] = RECLASS(REMOTE GET(publicHost, "factory-db"), labelPublic)
 
-			val components : Rep[Query[Component]] = RECLASS (REMOTE GET (productionHost, "component-db"), labelProduction)
-			val pcs : Rep[Query[PC]] = RECLASS (REMOTE GET (productionHost, "pc-db"), labelProduction)
-			val fps : Rep[Query[FP]] = RECLASS (REMOTE GET (productionHost, "fp-db"), labelProduction)
+			val components: Rep[Query[Component]] = RECLASS(REMOTE GET(productionHost, "component-db"), labelProduction)
+			val pcs: Rep[Query[PC]] = RECLASS(REMOTE GET(productionHost, "pc-db"), labelProduction)
+			val fps: Rep[Query[FP]] = RECLASS(REMOTE GET(productionHost, "fp-db"), labelProduction)
 
-			val suppliers : Rep[Query[Supplier]] = RECLASS (REMOTE GET (purchasingHost, "supplier-db"), labelPurchasing)
-			val scs : Rep[Query[SC]] = RECLASS (REMOTE GET (purchasingHost, "sc-db"), labelPurchasing)
+			val suppliers: Rep[Query[Supplier]] = RECLASS(REMOTE GET(purchasingHost, "supplier-db"), labelPurchasing)
+			val scs: Rep[Query[SC]] = RECLASS(REMOTE GET(purchasingHost, "sc-db"), labelPurchasing)
 
-			val employees : Rep[Query[Employee]] = RECLASS (REMOTE GET (employeesHost, "employee-db"), labelEmployees)
-			val fes : Rep[Query[FE]] = RECLASS (REMOTE GET (employeesHost, "fe-db"), labelEmployees)
+			val employees: Rep[Query[Employee]] = RECLASS(REMOTE GET(employeesHost, "employee-db"), labelEmployees)
+			val fes: Rep[Query[FE]] = RECLASS(REMOTE GET(employeesHost, "fe-db"), labelEmployees)
 
-//			val workersInFactory : Rep[Query[(Int, Int)]] =
-//				SELECT (
-//					(fid : Rep[Int]) => fid, COUNT(*)
-//				) FROM (fes) GROUP BY ((fe : Rep[FE]) => fe.factoryId)
+			//			val workersInFactory : Rep[Query[(Int, Int)]] =
+			//				SELECT (
+			//					(fid : Rep[Int]) => fid, COUNT(*)
+			//				) FROM (fes) GROUP BY ((fe : Rep[FE]) => fe.factoryId)
 
 
-			val a = COUNT.apply((fe : Rep[FE]) => fe)
-			val aggregateFunction : AggregateFunctionSelfMaintained[FE, Int] = a.asInstanceOf[AggregateFunctionSelfMaintained[FE, Int]]
+			val a = COUNT.apply((fe: Rep[FE]) => fe)
+			val aggregateFunction: AggregateFunctionSelfMaintained[FE, Int] = a.asInstanceOf[AggregateFunctionSelfMaintained[FE, Int]]
 
 			val clause =
-				GroupByClause1 (
-					(fe : Rep[FE]) => fe.factoryId,
-					FromClause1 (
+				GroupByClause1(
+					(fe: Rep[FE]) => fe.factoryId,
+					FromClause1(
 						fes,
-						SelectAggregateClause[Int, FE, (Int, Int, FE)] (
-							AggregateTupledFunctionSelfMaintained[Int, FE, Int, Int, (Int, Int, FE)] (
+						SelectAggregateClause[Int, FE, (Int, Int, FE)](
+							AggregateTupledFunctionSelfMaintained[Int, FE, Int, Int, (Int, Int, FE)](
 								aggregateFunction.start,
-								(x : Rep[(FE, Int)]) => aggregateFunction.added ((x._1, x._2)),
-								(x : Rep[(FE, Int)]) => aggregateFunction.removed ((x._1, x._2)),
-								(x : Rep[(FE, FE, Int)]) => aggregateFunction.updated ((x._1, x._2, x._3)),
-								(fid : Rep[Int]) => fid,
-								fun ( (x : Rep[(Int, Int, FE)]) => (x._1, x._2, x._3) )
+								(x: Rep[(FE, Int)]) => aggregateFunction.added((x._1, x._2)),
+								(x: Rep[(FE, Int)]) => aggregateFunction.removed((x._1, x._2)),
+								(x: Rep[(FE, FE, Int)]) => aggregateFunction.updated((x._1, x._2, x._3)),
+								(fid: Rep[Int]) => fid,
+								fun((x: Rep[(Int, Int, FE)]) => (x._1, x._2, x._3))
 							),
 							false
 						)
 					)
 				)
 
-			val workersInFactory : Rep[Query[(Int, Int, FE)]] = plan(clause)
+			val workersInFactory: Rep[Query[(Int, Int, FE)]] = plan(clause)
 
-
-			val q = SELECT ((fw : Rep[(Int, Int, FE)], fp : Rep[FP], p : Rep[Product]) =>
+			val query5 = SELECT((fw: Rep[(Int, Int, FE)], fp: Rep[FP], p: Rep[Product]) =>
 				fw
-			) FROM (
+			) FROM(
 				workersInFactory, fps, products
-			) WHERE ((fw : Rep[(Int, Int, FE)], fp : Rep[FP], p : Rep[Product]) =>
+			) WHERE ((fw: Rep[(Int, Int, FE)], fp: Rep[FP], p: Rep[Product]) =>
 				p.name.startsWith("Billy") AND fp.productId == p.id AND fp.factoryId == fw._1
-			)
-
-
-			//Compile to LMS representation (only needed for printing)
-			val query : Rep[Query[ResultType]] = q
+				)
+			// Sums up the number of workers in a factory producing Billy (every factory). Removes old entry if the
+			// number changed and adds new one
 
 			//Define the root. The operators get distributed here.
-			val r : idb.Relation[ResultType] =
-				ROOT(clientHost, query)
+			val r: idb.Relation[ResultType] =
+				ROOT(clientHost, query5)
+
+			// Setup latency recording
+			r.addObserver(new NoOpObserver[ResultType] {
+				override def added(fw: (Int, Int, FE)): Unit = {
+					// Employee id is used as latency id
+					logLatency(fw._3.employeeId, "query", false)
+				}
+
+				override def addedAll(vs: Seq[(Int, Int, FE)]): Unit =
+					vs foreach (v => added(v))
+			})
+
 			r
 		}
+
+		override protected def sleepUntilCold(expectedEvents: Int): Unit =
+		// iterations * 10 adds and iterations * 9 removes
+			super.sleepUntilCold(iterations * 19)
 	}
 
 	"Hospital Benchmark" must {

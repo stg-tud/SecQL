@@ -1,10 +1,10 @@
 package sae.benchmark.hospital
 
 import akka.remote.testkit.MultiNodeSpec
-import idb.metrics.ThroughputEvaluator
+import idb.query.QueryEnvironment
 import idb.query.taint._
-import idb.query.{QueryEnvironment, RemoteHost}
 import sae.benchmark.BenchmarkMultiNodeSpec
+import sae.benchmark.hospital.HospitalMultiNodeConfig._
 
 class HospitalBenchmark2MultiJvmNode1 extends HospitalBenchmark2
 class HospitalBenchmark2MultiJvmNode2 extends HospitalBenchmark2
@@ -19,16 +19,7 @@ class HospitalBenchmark2 extends MultiNodeSpec(HospitalMultiNodeConfig)
 	//Specifies the table setup
 	with HospitalBenchmark {
 
-	override val benchmarkQuery = "2"
-
-	import HospitalMultiNodeConfig._
-
-	//Setup query environment
-	val personHost = RemoteHost("personHost", node(node1))
-	val patientHost = RemoteHost("patientHost", node(node2))
-	val knowledgeHost = RemoteHost("knowledgeHost", node(node3))
-	val clientHost = RemoteHost("clientHost", node(node4))
-
+	override val benchmarkQuery = "query2"
 	implicit val env: QueryEnvironment = QueryEnvironment.create(
 		system,
 		Map(
@@ -38,9 +29,8 @@ class HospitalBenchmark2 extends MultiNodeSpec(HospitalMultiNodeConfig)
 			clientHost -> (0, Set("red", "green", "purple"))
 		)
 	)
-	override type ResultType = (Long, Int, String, String)
 
-	object ClientNode extends ReceiveNode[ResultType]("client") {
+	object ClientNode extends ReceiveNode[ResultType]("client") with HospitalReceiveNode {
 		override def relation(): idb.Relation[ResultType] = {
 			//Write an i3ql query...
 			import BaseHospital._
@@ -55,23 +45,23 @@ class HospitalBenchmark2 extends MultiNodeSpec(HospitalMultiNodeConfig)
 			val knowledgeDB: Rep[Query[KnowledgeType]] =
 				REMOTE GET(knowledgeHost, "knowledge-db", Taint("purple"))
 
-			val q1 =
+			val query2 =
 				SELECT DISTINCT (
-					(person: Rep[PersonType], patientSymptom: Rep[(PatientType, String)], knowledgeData: Rep[KnowledgeType]) => (person._1, person._2.personId, person._2.name, knowledgeData.diagnosis)
-					) FROM(
-					RECLASS(personDB, Taint("green")), UNNEST(patientDB, (x: Rep[PatientType]) => x.symptoms), knowledgeDB
+					(person: Rep[PersonType], patientSymptom: Rep[(PatientType, String)], knowledgeData: Rep[KnowledgeType]) =>
+						(person.personId, person.name, knowledgeData.diagnosis)
+					) FROM(RECLASS(personDB, Taint("green")), UNNEST(patientDB, (x: Rep[PatientType]) => x.symptoms), knowledgeDB
 				) WHERE (
 					(person: Rep[PersonType], patientSymptom: Rep[(PatientType, String)], knowledgeData: Rep[KnowledgeType]) =>
-						person._2.personId == patientSymptom._1.personId AND
+						person.personId == patientSymptom._1.personId AND
 							patientSymptom._2 == knowledgeData.symptom AND
 							knowledgeData.symptom == Symptoms.cough AND
-							person._2.name == "John Doe"
+							person.name == "John Doe"
 					)
 
 
 			//... and add ROOT. Workaround: Reclass the data to make it pushable to the client node.
 			val r: idb.Relation[ResultType] =
-				ROOT(clientHost, q1)
+				ROOT(clientHost, query2)
 			r
 		}
 	}

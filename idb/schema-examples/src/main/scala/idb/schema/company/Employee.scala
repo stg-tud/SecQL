@@ -1,9 +1,7 @@
 package idb.schema.company
 
-import idb.schema.{Benchmarkable, BenchmarkableSchema}
-
 case class Employee(id : Int, name : String)
-	extends Nameable with Benchmarkable
+	extends Nameable
 
 trait EmployeeSchema
-	extends NameableSchema with BenchmarkableSchema
+	extends NameableSchema
