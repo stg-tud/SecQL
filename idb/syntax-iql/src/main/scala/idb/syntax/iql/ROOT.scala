@@ -12,8 +12,9 @@ import idb.syntax.iql.IR._
 import idb.syntax.iql.runtime.{CompilerBinding, RemoteUtils}
 
 /**
- * @author Mirko Köhler
- */
+  * Syntax operator to define the deployment target host of the root of a distributed query. The result relation will be
+  * located on that host while the remaining operator tree may be distributed over other nodes.
+  */
 object ROOT {
 
 	def UNSAFE[Domain : Manifest](host : ActorPath, query : Rep[Query[Domain]])(implicit env : QueryEnvironment) : Relation[Domain] = {
