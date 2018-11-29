@@ -91,22 +91,22 @@ We presented i3QL, a general-purpose programming language for specifying increme
 
 This section gives an overview of all packages of the i3ql project.
 	
-Following are all packages of the i3Ql project:
+Following are the packages of the i3Ql project in this repository:
 
 * __idb__: Incremental Database
 	* __idb-runtime__: Runtime classes/engine (e.g. operators) for relations
 	* __idb-syntax-iql__: Syntax of the query language and transforming of queries into intermediate representation
 	* __idb-intermediate-representation__: Representation and optimization of queries as syntax trees. Uses LMS.
-	*__idb-runtime-compiler__: Transforms syntax trees to runnable "code"
-	*__idb-integration-test__: End-to-end user tests of queries
-	*__idb-schema-examples__: University database example that is used for testing
-	*__idb-annotations__: Implements custom annotations
+	* __idb-runtime-compiler__: Transforms syntax trees to runnable "code"
+	* __idb-integration-test__: End-to-end user tests of queries
+	* __idb-schema-examples__: University database example that is used for testing
+	* __idb-annotations__: Implements custom annotations
 		
-		bytecode-database - Database for Java Bytecode which is used for static analyses
-		bytecode-database/interface - Implements the interface for Java bytecode databases
-		bytecode-database/binding-asm - Concrete implementation of the bytecode database interface using ASM (http://asm.ow2.org)
-		
-		analyses - Demo static analyses of Findbugs and Metrics
-		analyses/findbugs - Contains the static analyses
-		analyses/metrics - Implements metrics 
-		analyses/profiler - Contains classes to profile the static analyses (time and memory profiler)
+* __demo__: Contains several demo projects for standard i3QL. Please refer to [it's README](demo/README.md)
+
+* __distributed-benchmarks__: Benchmarks for distributed i3QL and their shared implementation base
+	* __company-benchmark__: Company case study
+	* __hospital-benchmark__: Hospital case study
+	* __tpch-benchmark__: TPC-H benchmark based benchmark and demo
+	* _aws-setup_: Scripts for setup and execution of the benchmark on Amazon Web Service
+	* _evaluation_: Scripts and templates for the evaluation of benchmark executions
