@@ -69,9 +69,9 @@ for (execution in executions) {
 
 # Time offsets (^= measurement start) and measurement ends (^= measurement finished) per execution and node
 timeOffsets = filter(eventData, grepl("^section\\.measurement\\.enter$", event)) %>% group_by(node, execution) %>% summarize(timeOffset = median(time)) %>% ungroup
-# End time is reduced statically by 5s, since client only gets cold after for min 5s seconds nothing happened (real end might be even up to 5 seconds earlier)
+# Real end might be even up to 5 seconds earlier
 measurementStarted = filter(eventData, grepl("^section\\.measurement-recording\\.enter$", event)) %>% group_by(node, execution) %>% summarize(timeStarted = min(time)) %>% ungroup
-measurementFinished = filter(eventData, grepl("^section\\.measurement-finished\\.enter$", event)) %>% group_by(node, execution) %>% summarize(timeFinished = median(time) - 4000) %>% ungroup
+measurementFinished = filter(eventData, grepl("^section\\.measurement-finished\\.enter$", event)) %>% group_by(node, execution) %>% summarize(timeFinished = median(time)) %>% ungroup
 offsetStartFinish = inner_join(timeOffsets, measurementStarted, by = c("node", "execution")) %>% inner_join(measurementFinished, by = c("node", "execution"))
 
 # Apply time offsets and measurement end to the data
