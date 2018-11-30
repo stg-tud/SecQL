@@ -2,8 +2,9 @@ package idb.remote
 
 import akka.actor.ActorRef
 
-trait AccessMessage extends Serializable
-case class SendTo(ref : ActorRef) extends AccessMessage
-case object Initialize extends AccessMessage
-case object Reset extends AccessMessage
-case object Print extends AccessMessage
+trait ControlMessage extends Serializable
+
+case class SendTo(ref: ActorRef) extends ControlMessage
+case object Initialize extends ControlMessage
+case object Reset extends ControlMessage
+case object Print extends ControlMessage
