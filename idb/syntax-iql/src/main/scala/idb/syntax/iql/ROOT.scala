@@ -23,9 +23,8 @@ object ROOT {
 	}
 
 	def UNSAFE[Domain : Manifest](host : ActorPath, relation : Relation[Domain])(implicit env : QueryEnvironment) : Relation[Domain] = {
-		val ref = RemoteUtils.deploy(env.system, host)(relation)
-		val r = RemoteUtils.fromWithDeploy(env.system, ref)
-		r
+		val controllerRef = RemoteUtils.deployController(env.system, host)(relation)
+		RemoteUtils.deployQuery(env.system, controllerRef)
 	}
 
 	def UNSAFE[Domain : Manifest](host : RemoteHost, query : Rep[Query[Domain]])(implicit env : QueryEnvironment) : Relation[Domain] =
@@ -55,7 +54,7 @@ object ROOT {
 		Predef.println("***********************************************")
 		Predef.println()
 
-		Predef.println(printer.quoteRelation(q))
+		Predef.println(printer.quoteRelation(query))
 
 
 		Predef.println()
@@ -69,11 +68,8 @@ object ROOT {
 		val relation : Relation[Domain] = q
 		val RemoteHost(_, queryPath) = q.host
 
-		val ref = RemoteUtils.deploy(env.system, queryPath)(relation)
-		val r = RemoteUtils.fromWithDeploy(env.system, ref)
-
-		r
-//		relation
+		val rootControllerRef = RemoteUtils.deployController(env.system, queryPath)(relation)
+		RemoteUtils.deployQuery(env.system, rootControllerRef)
 	}
 
 	def apply[Domain : Manifest](query : Rep[Query[Domain]])(implicit env : QueryEnvironment) : Relation[Domain] = {

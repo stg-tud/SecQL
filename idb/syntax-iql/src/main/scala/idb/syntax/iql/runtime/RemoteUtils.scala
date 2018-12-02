@@ -9,13 +9,14 @@ import idb.remote.receive.{PathRemoteReceiver, RefRemoteReceiver, RemoteReceiver
 object RemoteUtils {
 	/**
 	  * Deploys a relation on the given node.
+	  *
 	  * @return A reference to an access actor that controls the given relation.
 	  */
-	def deploy[Domain](system : ActorSystem, node : ActorPath)(relation : Relation[Domain]) : ActorRef = {
+	def deployController[Domain](system: ActorSystem, node: ActorPath)(relation: Relation[Domain]): ActorRef = {
 
 		val ref = system.actorOf(
 			Props(classOf[CompilingRemoteController[Domain]], relation)
-				.withDeploy(Deploy(scope=RemoteScope(node.address)))
+				.withDeploy(Deploy(scope = RemoteScope(node.address)))
 		)
 
 		ref ! Initialize
@@ -23,29 +24,30 @@ object RemoteUtils {
 	}
 
 	/**
-	  * Creates an actor for a relation, so that it can be referenced by other remotes.
+	  * Creates an controlling actor for a relation, so that it can be referenced by other remotes.
+	  *
 	  * @return A reference to an access actor that controls the given relation.
 	  */
-	def create(system : ActorSystem)(id : String, relation : Relation[_]) : ActorRef = {
+	def createController(system: ActorSystem)(id: String, relation: Relation[_]): ActorRef = {
 		system.actorOf(Props(classOf[CompilingRemoteController[_]], relation), id)
 	}
 
-	def from[Domain](path : ActorPath) : RemoteReceiver[Domain] = {
-		PathRemoteReceiver[Domain](path)
+	def relation[Domain](controllerPath: ActorPath): RemoteReceiver[Domain] = {
+		PathRemoteReceiver[Domain](controllerPath)
 	}
 
-	def fromWithDeploy[Domain](system : ActorSystem, path : ActorPath) : RemoteReceiver[Domain] = {
-		val r = from[Domain](path)
+	def deployQuery[Domain](system: ActorSystem, controllerPath: ActorPath): RemoteReceiver[Domain] = {
+		val r = relation[Domain](controllerPath)
 		r.deploy(system)
 		r
 	}
 
-	def from[Domain](ref : ActorRef) : RemoteReceiver[Domain] = {
-		RefRemoteReceiver[Domain](ref)
+	def relation[Domain](controllerRef: ActorRef): RemoteReceiver[Domain] = {
+		RefRemoteReceiver[Domain](controllerRef)
 	}
 
-	def fromWithDeploy[Domain](system : ActorSystem, ref : ActorRef) : RemoteReceiver[Domain] = {
-		val r = from[Domain](ref)
+	def deployQuery[Domain](system: ActorSystem, controllerRef: ActorRef): RemoteReceiver[Domain] = {
+		val r = relation[Domain](controllerRef)
 		r.deploy(system)
 		r
 	}
