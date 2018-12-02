@@ -1,4 +1,4 @@
-package idb.distribution
+package idb.remote.control
 
 import akka.actor.{Actor, ActorRef}
 import idb.Relation

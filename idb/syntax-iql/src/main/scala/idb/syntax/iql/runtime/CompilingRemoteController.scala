@@ -1,7 +1,7 @@
 package idb.syntax.iql.runtime
 
 import idb.Relation
-import idb.distribution.RemoteController
+import idb.remote.control.RemoteController
 
 /**
   * This is a RemoteController, which is able to unbox and compile query relations in initialization
