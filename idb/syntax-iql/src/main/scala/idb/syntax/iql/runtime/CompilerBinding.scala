@@ -71,7 +71,12 @@ case object CompilerBinding
 		RemoteUtils.from[Domain](ref)
 	}
 
-	def initialize(relation: Relation[_]): Unit = {
+	/**
+	  *
+	  * @param relation
+	  * @param recursion If set to false, the children of the relation won't be handled recursively
+	  */
+	def initialize(relation: Relation[_], recursion: Boolean = true): Unit = {
 		relation match {
 			case r : SelectionView[_] =>
 				BoxedFunction.compile(r.filter, CompilerBinding)
@@ -94,6 +99,7 @@ case object CompilerBinding
 			case _ =>
 		}
 
-		relation.children.foreach(c => initialize(c))
+		if (recursion)
+			relation.children.foreach(c => initialize(c))
 	}
 }

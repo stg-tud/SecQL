@@ -29,11 +29,19 @@ object sae extends Build {
 			intermediateRepresentation % "compile;test"
 		)
 
+	lazy val runtimeDistribution = Project(
+		id = "idb-runtime-distribution",
+		base = file("idb/runtime-distribution"))
+		.dependsOn(
+			runtimeCompiler % "compile;test"
+		)
+
 	lazy val syntax = Project(
 		id = "idb-syntax-iql",
 		base = file("idb/syntax-iql"))
 		.dependsOn(
 			runtimeCompiler % "compile;test",
+			runtimeDistribution % "compile;test",
 			schemaExamples % "compile;test",
 			runtime % "compile;test"
 		)
@@ -87,7 +95,7 @@ object sae extends Build {
 	Root Project
 	*/
 	lazy val root = Project(id = "sae", base = file("."))
-		.aggregate(runtime, intermediateRepresentation, schemaExamples, runtimeCompiler, syntax, integrationTest, testData, distributedBenchmarks, companyBenchmark, hospitalBenchmark, tpchBenchmark)
+		.aggregate(runtime, intermediateRepresentation, schemaExamples, runtimeCompiler, runtimeDistribution, syntax, integrationTest, testData, distributedBenchmarks, companyBenchmark, hospitalBenchmark, tpchBenchmark)
 
 
 	val virtScala = Option(System.getenv("SCALA_VIRTUALIZED_VERSION")).getOrElse("2.11.2")
