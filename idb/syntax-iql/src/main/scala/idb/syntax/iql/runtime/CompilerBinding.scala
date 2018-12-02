@@ -64,11 +64,11 @@ case object CompilerBinding
     }
 
 	override def remoteRelation[Domain](path: ActorPath): Relation[Domain] =
-		RemoteUtils.relation[Domain](path)
+		RemoteUtils.receiver[Domain](path)
 
 	override def remoteDeploy[Domain](system: ActorSystem, rel: Relation[Domain], path: ActorPath): Relation[Domain] = {
-		val controllerRef = RemoteUtils.deployController(system, path)(rel)
-		RemoteUtils.relation(controllerRef)
+		val controllerRef = RemoteUtils.deployOperator(system, path)(rel)
+		RemoteUtils.receiver[Domain](controllerRef)
 	}
 
 	/**

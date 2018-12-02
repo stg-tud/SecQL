@@ -23,7 +23,7 @@ object REMOTE {
 	  */
 	def DEFINE[V](relation : Relation[V], id : String)(implicit env : QueryEnvironment) : ActorRef = {
 		//The created actor has the path host.path / "user" / id
-		RemoteUtils.createController(env.system)(id, relation)
+		RemoteUtils.createOperator(env.system)(id, relation)
 	}
 
 	/**

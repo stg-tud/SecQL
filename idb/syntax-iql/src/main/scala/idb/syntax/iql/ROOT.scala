@@ -17,29 +17,29 @@ import idb.syntax.iql.runtime.{CompilerBinding, RemoteUtils}
   */
 object ROOT {
 
-	def UNSAFE[Domain : Manifest](host : ActorPath, query : Rep[Query[Domain]])(implicit env : QueryEnvironment) : Relation[Domain] = {
-		val relation : Relation[Domain] = query
+	def UNSAFE[Domain: Manifest](host: ActorPath, query: Rep[Query[Domain]])(implicit env: QueryEnvironment): Relation[Domain] = {
+		val relation: Relation[Domain] = query
 		UNSAFE(host, relation)
 	}
 
-	def UNSAFE[Domain : Manifest](host : ActorPath, relation : Relation[Domain])(implicit env : QueryEnvironment) : Relation[Domain] = {
-		val controllerRef = RemoteUtils.deployController(env.system, host)(relation)
-		RemoteUtils.deployQuery(env.system, controllerRef)
+	def UNSAFE[Domain: Manifest](host: ActorPath, relation: Relation[Domain])(implicit env: QueryEnvironment): Relation[Domain] = {
+		val controllerRef = RemoteUtils.deployOperator(env.system, host)(relation)
+		RemoteUtils.deployReceiver(env.system, controllerRef)
 	}
 
-	def UNSAFE[Domain : Manifest](host : RemoteHost, query : Rep[Query[Domain]])(implicit env : QueryEnvironment) : Relation[Domain] =
+	def UNSAFE[Domain: Manifest](host: RemoteHost, query: Rep[Query[Domain]])(implicit env: QueryEnvironment): Relation[Domain] =
 		UNSAFE(host.path, query)
 
 
-	def UNSAFE[Domain : Manifest](host : RemoteHost, relation : Relation[Domain])(implicit env : QueryEnvironment) : Relation[Domain] =
+	def UNSAFE[Domain: Manifest](host: RemoteHost, relation: Relation[Domain])(implicit env: QueryEnvironment): Relation[Domain] =
 		UNSAFE(host.path, relation)
 
-	def apply[Domain : Manifest](rootHost : RemoteHost, query : Rep[Query[Domain]])(implicit env : QueryEnvironment) : Relation[Domain] = {
+	def apply[Domain: Manifest](rootHost: RemoteHost, query: Rep[Query[Domain]])(implicit env: QueryEnvironment): Relation[Domain] = {
 
 		object Placement extends PlacementStrategy {
 			val IR = idb.syntax.iql.IR
 		}
-		 val q = Placement.transform(root(query, rootHost))
+		val q = Placement.transform(root(query, rootHost))
 
 		val printer = new RelationalAlgebraDemoPrintPlan {
 			override val IR = idb.syntax.iql.IR
@@ -65,14 +65,14 @@ object ROOT {
 		Predef.println()
 		Predef.println()
 
-		val relation : Relation[Domain] = q
+		val relation: Relation[Domain] = q
 		val RemoteHost(_, queryPath) = q.host
 
-		val rootControllerRef = RemoteUtils.deployController(env.system, queryPath)(relation)
-		RemoteUtils.deployQuery(env.system, rootControllerRef)
+		val rootOperator = RemoteUtils.deployOperator(env.system, queryPath)(relation)
+		RemoteUtils.deployReceiver(env.system, rootOperator)
 	}
 
-	def apply[Domain : Manifest](query : Rep[Query[Domain]])(implicit env : QueryEnvironment) : Relation[Domain] = {
+	def apply[Domain: Manifest](query: Rep[Query[Domain]])(implicit env: QueryEnvironment): Relation[Domain] = {
 		val r = compile(query)
 		CompilerBinding.initialize(r)
 		r

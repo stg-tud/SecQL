@@ -1,7 +1,7 @@
 package idb.syntax.iql.runtime
 
 import idb.Relation
-import idb.remote.control.RemoteController
+import idb.remote.RemoteOperator
 
 /**
   * This is a RemoteController, which is able to unbox and compile query relations in initialization
@@ -9,8 +9,8 @@ import idb.remote.control.RemoteController
   * @param relation
   * @tparam Domain
   */
-class CompilingRemoteController[Domain](relation: Relation[Domain])
-	extends RemoteController[Domain](relation) {
+class CompilingRemoteOperator[Domain](relation: Relation[Domain])
+	extends RemoteOperator[Domain](relation) {
 
 	override protected def initialize(relation: Relation[_]): Unit = {
 		CompilerBinding.initialize(relation, false)
