@@ -1,4 +1,4 @@
-package idb.remote.receive
+package idb.remote.relation
 
 import java.io.PrintStream
 

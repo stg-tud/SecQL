@@ -4,7 +4,7 @@ import akka.actor.{Actor, ActorRef}
 import idb.Relation
 import idb.observer.Observer
 import idb.remote._
-import idb.remote.receive.RemoteReceiver
+import idb.remote.relation.RemoteReceiver
 
 import scala.collection.mutable
 

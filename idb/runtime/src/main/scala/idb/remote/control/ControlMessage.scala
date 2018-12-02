@@ -1,4 +1,4 @@
-package idb.remote
+package idb.remote.control
 
 import akka.actor.ActorRef
 

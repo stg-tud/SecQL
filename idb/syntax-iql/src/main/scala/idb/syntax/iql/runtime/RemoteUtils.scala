@@ -4,7 +4,7 @@ import akka.actor.{ActorPath, ActorRef, ActorSystem, Deploy, Props}
 import akka.remote.RemoteScope
 import idb.Relation
 import idb.remote.Initialize
-import idb.remote.receive.{PathRemoteReceiver, RefRemoteReceiver, RemoteReceiver}
+import idb.remote.relation.{PathRemoteReceiver, RefRemoteReceiver, RemoteReceiver}
 
 object RemoteUtils {
 	/**

@@ -1,4 +1,4 @@
-package idb.remote
+package idb.remote.relation
 
 /**
  * Sealed trait to simplify pickling.
