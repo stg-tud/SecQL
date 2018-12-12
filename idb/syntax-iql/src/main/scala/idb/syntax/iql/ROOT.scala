@@ -42,7 +42,7 @@ object ROOT {
 		object Placement extends PlacementStrategy {
 			val IR = idb.syntax.iql.IR
 		}
-		val q = Placement.transform(root(query, rootHost))
+		val transformedQuery = Placement.transform(root(query, rootHost))
 
 		val printer = new RelationalAlgebraDemoPrintPlan {
 			override val IR = idb.syntax.iql.IR
@@ -57,8 +57,7 @@ object ROOT {
 		Predef.println("***********************************************")
 		Predef.println()
 
-		Predef.println(printer.quoteRelation(query))
-
+		Predef.println(printer.quoteRelation(transformedQuery))
 
 		Predef.println()
 		Predef.println("***********************************************")
@@ -68,8 +67,8 @@ object ROOT {
 		Predef.println()
 		Predef.println()
 
-		val relation: Relation[Domain] = q
-		val RemoteHost(_, queryPath) = q.host
+		val relation: Relation[Domain] = transformedQuery
+		val RemoteHost(_, queryPath) = transformedQuery.host
 
 		implicit val mat: ActorMaterializer = ActorMaterializer()(env.system)
 		val rootOperator = RemoteUtils.deployOperator(env.system, queryPath)(relation)
