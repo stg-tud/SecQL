@@ -13,8 +13,6 @@ trait BenchmarkConfig {
 	val iterations: Int
 	val doWarmup: Boolean
 
-	val waitForDeploymentMs = 15000L
-	val waitForResetMs = 5000L
 	val waitForBeingColdIntervalMs = 5000L // Interval in which it is checked, whether the receiving relation is cold
 	val waitForBeingColdTimeoutMs = 30000L // Timeout after which test fails, if relation does not get cold and eventCount doesn't change
 

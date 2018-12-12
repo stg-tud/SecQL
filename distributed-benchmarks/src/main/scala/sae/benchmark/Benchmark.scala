@@ -228,9 +228,8 @@ trait Benchmark extends MultiNodeSpec with BenchmarkConfig {
 			super.compile()
 
 			r = relation()
+			log.info("Completed compiling, printing query tree")
 			r.print()
-			log.info(s"Waiting for deployment ${waitForDeploymentMs / 1000}s")
-			Thread.sleep(waitForDeploymentMs)
 		}
 
 		override def warmupInit(): Unit = {
@@ -248,8 +247,6 @@ trait Benchmark extends MultiNodeSpec with BenchmarkConfig {
 		override protected def reset(): Unit = {
 			super.reset()
 			r.reset()
-			log.info(s"Waiting for reset ${waitForResetMs / 1000}s")
-			Thread.sleep(waitForResetMs)
 		}
 
 		override protected def measurementInit(): Unit = {
