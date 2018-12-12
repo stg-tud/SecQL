@@ -1,12 +1,15 @@
 package idb.syntax.iql
 
 import akka.actor.ActorPath
+import akka.stream.ActorMaterializer
+import akka.stream.scaladsl.Sink
 import idb.algebra.demo.RelationalAlgebraDemoPrintPlan
 import idb.algebra.ir._
 import idb.algebra.print.RelationalAlgebraPrintPlan
 import idb.algebra.remote.PlacementStrategy
 import idb.lms.extensions.{FunctionUtils, ScalaOpsPkgExpExtensions}
 import idb.query.{Host, QueryEnvironment, RemoteHost}
+import idb.remote.stream.StreamAdapter
 import idb.syntax.iql
 import idb.syntax.iql.IR._
 import idb.syntax.iql.runtime.{CompilerBinding, RemoteUtils}
@@ -68,8 +71,11 @@ object ROOT {
 		val relation: Relation[Domain] = q
 		val RemoteHost(_, queryPath) = q.host
 
+		implicit val mat: ActorMaterializer = ActorMaterializer()(env.system)
 		val rootOperator = RemoteUtils.deployOperator(env.system, queryPath)(relation)
-		RemoteUtils.deployReceiver(env.system, rootOperator)
+		val r = RemoteUtils.deployReceiver(env.system, rootOperator)
+		r.source.runWith(Sink.foreach(msg => StreamAdapter.toObserver(msg, r)))
+		r
 	}
 
 	def apply[Domain: Manifest](query: Rep[Query[Domain]])(implicit env: QueryEnvironment): Relation[Domain] = {

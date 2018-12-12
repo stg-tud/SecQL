@@ -92,7 +92,7 @@ object sae extends Build {
 
 	val virtScala = Option(System.getenv("SCALA_VIRTUALIZED_VERSION")).getOrElse("2.11.2")
 
-	val akkaVersion = "2.4.4"
+	val akkaVersion = "2.5.18"
 
 	val logbackVersion = "1.2.3"
 

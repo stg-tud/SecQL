@@ -12,9 +12,13 @@ import idb.remote.RemoteOperator
 class CompilingRemoteOperator[Domain](relation: Relation[Domain])
 	extends RemoteOperator[Domain](relation) {
 
-	override protected def initialize(relation: Relation[_]): Unit = {
+	override protected def initializeOperator(relation: Relation[_]): Unit = {
 		CompilerBinding.initialize(relation, false)
 
-		super.initialize(relation)
+		super.initializeOperator(relation)
 	}
+
+	override protected def rootRelation(): Relation[Domain] =
+		CompilerBinding.unboxRelation(relation).asInstanceOf[Relation[Domain]]
+
 }

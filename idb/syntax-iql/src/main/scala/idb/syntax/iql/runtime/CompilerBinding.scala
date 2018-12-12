@@ -102,4 +102,15 @@ case object CompilerBinding
 		if (recursion)
 			relation.children.foreach(c => initialize(c))
 	}
+
+	def unboxRelation(relation: Relation[_]): Relation[_] =
+		relation match {
+			case r: BoxedEquiJoin[_, _] =>
+				r.equiJoin
+			case r: BoxedAggregationSelfMaintained[_, _, _, _, _] =>
+				r.aggregation
+			case r: BoxedAggregationNotSelfMaintained[_, _, _, _, _] =>
+				r.aggregation
+			case _ => relation
+		}
 }

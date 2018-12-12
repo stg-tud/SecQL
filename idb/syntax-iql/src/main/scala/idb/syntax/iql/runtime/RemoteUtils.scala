@@ -1,11 +1,19 @@
 package idb.syntax.iql.runtime
 
 import akka.actor.{ActorPath, ActorRef, ActorSystem, Deploy, Props}
+import akka.pattern.ask
 import akka.remote.RemoteScope
+import akka.util.Timeout
 import idb.Relation
-import idb.remote.{Initialize, RemoteReceiver}
+import idb.remote.{Initialized, RemoteConnector}
+
+import scala.concurrent.Await
+import scala.concurrent.duration.DurationInt
 
 object RemoteUtils {
+
+	implicit val timeout: Timeout = Timeout(10 seconds)
+
 	/**
 	  * Deploys a operator relation on the given node.
 	  *
@@ -18,7 +26,7 @@ object RemoteUtils {
 				.withDeploy(Deploy(scope = RemoteScope(node.address)))
 		)
 
-		ref ! Initialize
+		Await.result(ref ? Initialized, timeout.duration)
 		ref
 	}
 
@@ -31,23 +39,23 @@ object RemoteUtils {
 		system.actorOf(Props(classOf[CompilingRemoteOperator[_]], relation), id)
 	}
 
-	def receiver[Domain](controllerPath: ActorPath): RemoteReceiver[Domain] = {
-		RemoteReceiver[Domain](controllerPath)
+	def receiver[Domain](controllerPath: ActorPath): RemoteConnector[Domain] = {
+		RemoteConnector[Domain](controllerPath)
 	}
 
-	def deployReceiver[Domain](system: ActorSystem, operatorPath: ActorPath): RemoteReceiver[Domain] = {
+	def deployReceiver[Domain](system: ActorSystem, operatorPath: ActorPath): RemoteConnector[Domain] = {
 		val r = receiver[Domain](operatorPath)
-		r.deploy(system)
+		r.initialize(system)
 		r
 	}
 
-	def receiver[Domain](controllerRef: ActorRef): RemoteReceiver[Domain] = {
-		RemoteReceiver[Domain](controllerRef)
+	def receiver[Domain](controllerRef: ActorRef): RemoteConnector[Domain] = {
+		RemoteConnector[Domain](controllerRef)
 	}
 
-	def deployReceiver[Domain](system: ActorSystem, operatorRef: ActorRef): RemoteReceiver[Domain] = {
+	def deployReceiver[Domain](system: ActorSystem, operatorRef: ActorRef): RemoteConnector[Domain] = {
 		val r = receiver[Domain](operatorRef)
-		r.deploy(system)
+		r.initialize(system)
 		r
 	}
 }
