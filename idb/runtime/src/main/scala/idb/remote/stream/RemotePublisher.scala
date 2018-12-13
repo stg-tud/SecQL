@@ -18,6 +18,8 @@ trait RemotePublisher[T] extends Publisher[DataMessage[T]] {
 
 	private val subscriptions = mutable.HashMap.empty[Subscriber[_ >: DataMessage[T]], RemotePublisherSubscription]
 
+	def hasSubscribers: Boolean = subscriptions.nonEmpty
+
 	override def subscribe(subscriber: Subscriber[_ >: DataMessage[T]]): Unit = {
 		if (subscriptions.keySet.contains(subscriber))
 			return
@@ -38,7 +40,7 @@ trait RemotePublisher[T] extends Publisher[DataMessage[T]] {
 	protected def publishAll(msgs: Seq[DataMessage[T]]): Unit =
 		subscriptions foreach { case (_, subscription) => subscription.publishAll(msgs) }
 
-	protected def demand = subscriptions.values.map(_.requested).max
+	protected def demand = if (subscriptions.isEmpty) 0L else subscriptions.values.map(_.requested).max
 
 	import scala.language.existentials
 
