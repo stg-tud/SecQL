@@ -1,13 +1,15 @@
 package sae.benchmark
 
 import akka.remote.testkit.MultiNodeSpec
+import idb.Relation
 import idb.metrics.{CountEvaluator, ThroughputEvaluator}
 import idb.query.QueryEnvironment
-import idb.{BagTable, Relation, Table}
+import sae.benchmark.db.{BenchmarkDB, BenchmarkDBConfig, PublisherBenchmarkDB, SimpleBenchmarkDB}
 import sae.benchmark.recording.mongo.MongoTransport
 import sae.benchmark.recording.recorders._
 
-import scala.concurrent.TimeoutException
+import scala.concurrent.duration.Duration
+import scala.concurrent.{Await, ExecutionContext, Future, TimeoutException}
 
 /**
   * Created by mirko on 07.11.16.
@@ -143,48 +145,76 @@ trait Benchmark extends MultiNodeSpec with BenchmarkConfig {
 		}
 	}
 
-	class DBNode(
-					nodeName: String,
-					val dbNames: Seq[String],
-					val initIterations: Int,
-					val iterations: Int
-				) extends Node(nodeName) {
+	abstract class DBNode(nodeName: String) extends Node(nodeName) {
 
-		protected def initIteration(dbs: Seq[Table[Any]], iteration: Int): Unit = {}
+		import ExecutionContext.Implicits.global
 
-		protected def iteration(dbs: Seq[Table[Any]], iteration: Int): Unit = {}
+		protected val dbConfigs: Seq[BenchmarkDBConfig[Any]]
+		protected var dbs: Seq[BenchmarkDB[Any]] = _
 
-		var dbs: Seq[Table[Any]] = _
+		protected def execInit(): Unit = {
+			if (dbBackpressure) {
+				val allCompleted = dbs
+					.map(_.asInstanceOf[PublisherBenchmarkDB[Any]])
+					.map(_.execInit())
+
+				Await.result(Future.sequence(allCompleted), Duration.Inf)
+			}
+			else {
+				var activeDbs = dbs.filter(_.config.initIterations > 0).map(_.asInstanceOf[SimpleBenchmarkDB[Any]])
+				while (activeDbs.nonEmpty)
+					activeDbs = activeDbs.filter(_.baseInitIteration())
+			}
+		}
+
+		protected def execMeasurement(): Unit = {
+			if (dbBackpressure) {
+				val allCompleted = dbs
+					.map(_.asInstanceOf[PublisherBenchmarkDB[Any]])
+					.map(_.execMeasurement())
+
+				Await.result(Future.sequence(allCompleted), Duration.Inf)
+			}
+			else {
+				var activeDbs = dbs.filter(_.config.iterations > 0).map(_.asInstanceOf[SimpleBenchmarkDB[Any]])
+				while (activeDbs.nonEmpty)
+					activeDbs = activeDbs.filter(_.baseIteration())
+			}
+		}
 
 		override protected def deploy(): Unit = {
 			super.deploy()
 
 			import idb.syntax.iql._
-			dbs = Seq.fill(dbNames.size)(BagTable.empty[Any])
-			dbs.zip(dbNames) foreach (t => REMOTE DEFINE(t._1, t._2))
+			dbs = dbConfigs
+				.map(config =>
+					if (dbBackpressure) new PublisherBenchmarkDB[Any](config)
+					else new SimpleBenchmarkDB[Any](config)
+				)
+			dbs foreach (db => REMOTE DEFINE(db, db.name))
 		}
 
 		override protected def warmupInit(): Unit = {
 			super.warmupInit()
-			(0 until initIterations).foreach(i => initIteration(dbs, i))
+			execInit()
 		}
 
 		override protected def warmup(): Unit = {
 			super.warmup()
-			(0 until iterations).foreach(i => iteration(dbs, i))
+			execMeasurement()
 		}
 
 		override protected def measurementRecordingInit(recorderRelations: Map[String, ThroughputEvaluator[_]]): Unit =
-			super.measurementRecordingInit(Map(dbNames zip dbs map { db => db._1 -> new ThroughputEvaluator(db._2) }: _*))
+			super.measurementRecordingInit(Map(dbs map { db => db.name -> new ThroughputEvaluator(db) }: _*))
 
 		override protected def measurementInit(): Unit = {
 			super.measurementInit()
-			(0 until initIterations).foreach(i => initIteration(dbs, i))
+			execInit()
 		}
 
 		override protected def measurement(): Unit = {
 			super.measurement()
-			(0 until iterations).foreach(i => iteration(dbs, i))
+			execMeasurement()
 		}
 	}
 

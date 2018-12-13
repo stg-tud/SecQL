@@ -6,11 +6,11 @@ package sae.benchmark
 trait BenchmarkConfig {
 
 	val debugMode: Boolean
+	val dbBackpressure: Boolean
 
 	val benchmarkGroup: String
 	val benchmarkQuery: String
 
-	val iterations: Int
 	val doWarmup: Boolean
 
 	val waitForBeingColdIntervalMs = 5000L // Interval in which it is checked, whether the receiving relation is cold
@@ -18,7 +18,7 @@ trait BenchmarkConfig {
 
 	val throughputRecordingIntervalMs = 100
 	val performanceRecordingIntervalMs = 100
-	val latencyRecordingInterval = 100 // Interval of results that shall be recorded for latency analysis
+	val latencyRecordingInterval = 1000 // Interval of results that shall be recorded for latency analysis
 
 	val mongoTransferRecords: Boolean = false
 	val mongoConnectionString: String
@@ -29,5 +29,3 @@ trait BenchmarkConfig {
 	}
 
 }
-
-
