@@ -25,36 +25,22 @@ object StreamAdapter {
 	  * @tparam T
 	  * @return
 	  */
-	def fromObservable[T](observable: Observable[T], onObserved: () => Unit = null): mutable.Queue[DataMessage[T]] = {
+	def bufferFromObservable[T](observable: Observable[T], onObserved: () => Unit = null): mutable.Queue[DataMessage[T]] = {
 		val buffer = new mutable.Queue[DataMessage[T]]()
 
-		observable.addObserver(new BridgeObserver())
-
-		class BridgeObserver extends Observer[T] {
-			private def enqueue(msg: DataMessage[T]): Unit = {
+		val bridge = new BridgeObserver[T](
+			msg => {
 				buffer.enqueue(msg)
-				if (onObserved != null) {
+				if (onObserved != null)
 					onObserved()
-				}
-			}
-
-			override def added(v: T): Unit = enqueue(Added(v))
-
-			override def addedAll(vs: Seq[T]): Unit = enqueue(AddedAll(vs))
-
-			override def updated(oldV: T, newV: T): Unit = enqueue(Updated(oldV, newV))
-
-			override def removed(v: T): Unit = enqueue(Removed(v))
-
-			override def removedAll(vs: Seq[T]): Unit = enqueue(RemovedAll(vs))
-		}
+			})
+		observable.addObserver(bridge)
 
 		buffer
 	}
 
-
 	def wrapLinearOperatorTree[T, U](leaf: Observer[T], root: Relation[U]): DataMessage[T] => immutable.Iterable[DataMessage[U]] = {
-		val bufferedResults = StreamAdapter.fromObservable(root)
+		val bufferedResults = StreamAdapter.bufferFromObservable(root)
 
 		msg: DataMessage[T] => {
 			StreamAdapter.toObserver(msg, leaf)

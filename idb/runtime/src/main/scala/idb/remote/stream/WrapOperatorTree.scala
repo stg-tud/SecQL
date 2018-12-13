@@ -34,7 +34,7 @@ case class WrapOperatorTree[T](leaves: Seq[Observer[Any]], root: Relation[T])(in
 
 		private def upstreamsClosed = runningUpstreams == 0
 
-		private val bufferedOutput = StreamAdapter.fromObservable(root, tryPush)
+		private val bufferedOutput = StreamAdapter.bufferFromObservable(root, tryPush)
 
 		private def outputPending: Boolean = bufferedOutput.nonEmpty
 

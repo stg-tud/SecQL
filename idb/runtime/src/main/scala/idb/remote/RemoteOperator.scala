@@ -5,8 +5,7 @@ import akka.stream.scaladsl.{Source, StreamRefs}
 import akka.stream.{ActorMaterializer, SourceRef}
 import akka.util.Timeout
 import idb.Relation
-import idb.remote.stream.{BufferedPublisher, StreamAdapter, WrapOperatorTree}
-import sun.reflect.generics.reflectiveObjects.NotImplementedException
+import idb.remote.stream.{RemotePublisher, RemotePublisherObserver, StreamAdapter, WrapOperatorTree}
 
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.duration.DurationInt
@@ -69,13 +68,12 @@ class RemoteOperator[Domain](val relation: Relation[Domain])
 			// This operator is a leaf in the tree and therefore a data source itself
 			log.info(s"Initializing leaf remote operator of $relation")
 			stream = relation match {
-				// If an iterator, pull based back pressure can be ensured without loss
-				case iterator: Iterator[Domain] =>
-					throw new NotImplementedException()
-				//						Source.fromIterator(() => iterator)
+				// If already a publisher, pull based back pressure can be ensured without loss
+				case view: RemotePublisher[Domain] =>
+					Source.fromPublisher(view)
 				// Otherwise buffering is necessary
 				case _ =>
-					Source.fromPublisher(BufferedPublisher[Domain](rootRelation))
+					Source.fromPublisher(RemotePublisherObserver[Domain](rootRelation))
 			}
 		}
 		else if (remoteConnections.size == 1) {
