@@ -156,6 +156,7 @@ trait Benchmark extends MultiNodeSpec with BenchmarkConfig {
 			if (dbBackpressure) {
 				val allCompleted = dbs
 					.map(_.asInstanceOf[PublisherBenchmarkDB[Any]])
+					.filter(_.hasSubscribers) // Gets stuck, if no subscriber => no one requests events
 					.map(_.execInit())
 
 				Await.result(Future.sequence(allCompleted), Duration.Inf)
@@ -171,6 +172,7 @@ trait Benchmark extends MultiNodeSpec with BenchmarkConfig {
 			if (dbBackpressure) {
 				val allCompleted = dbs
 					.map(_.asInstanceOf[PublisherBenchmarkDB[Any]])
+					.filter(_.hasSubscribers) // Gets stuck, if no subscriber => no one requests events
 					.map(_.execMeasurement())
 
 				Await.result(Future.sequence(allCompleted), Duration.Inf)
