@@ -17,10 +17,7 @@ object CompanyBenchmark7 {} // this object is necessary for multi-node testing
 
 class CompanyBenchmark7 extends MultiNodeSpec(CompanyMultiNodeConfig)
 	with BenchmarkMultiNodeSpec
-	//Specifies the table setup
-	with CompanyBenchmark
-	//Specifies the number of measurements/warmups
-	with DefaultPriorityConfig {
+	with CompanyBenchmark {
 
 	override val benchmarkQuery = "query7"
 
@@ -42,16 +39,16 @@ class CompanyBenchmark7 extends MultiNodeSpec(CompanyMultiNodeConfig)
 		factoryId / 10 * 5 + Math.max(0, factoryId % 10 - 5)
 
 	def getProductNumberById(productId: Int): Int =
-		if (productId < iterations) {
+		if (productId < baseIterations) {
 			getFactoryNumberById(productId) * 2
 		}
 		else {
-			getFactoryNumberById(productId - iterations) * 2 + 1
+			getFactoryNumberById(productId - baseIterations) * 2 + 1
 		}
 
 	object PublicDBNode extends PublicDBNode {
 		override protected def addProductHook(productId: Int): Unit = {
-			if (productId < iterations && productId % 10 >= 5 || productId >= iterations && productId - iterations % 10 >= 5)
+			if (productId < baseIterations && productId % 10 >= 5 || productId >= baseIterations && productId - baseIterations % 10 >= 5)
 				logLatency(getProductNumberById(productId), "query")
 		}
 	}
@@ -110,7 +107,7 @@ class CompanyBenchmark7 extends MultiNodeSpec(CompanyMultiNodeConfig)
 					)
 			// Selects all product that are produced in a factory in Darmstadt
 			// 	- Factory is in Darmstadt if id % 10 >= 5 (id = iteration)
-			//	- Each factory produces products with productId = factoryId and productId = iterations + factoryId
+			//	- Each factory produces products with productId = factoryId and productId = baseIterations + factoryId
 
 			//Define the root. The operators get distributed here.
 			val r: idb.Relation[ResultType] =
@@ -131,7 +128,7 @@ class CompanyBenchmark7 extends MultiNodeSpec(CompanyMultiNodeConfig)
 		}
 
 		override protected def sleepUntilCold(expectedCount: Int, entryMode: Boolean): Unit =
-			super.sleepUntilCold(iterations)
+			super.sleepUntilCold(baseIterations)
 	}
 
 	"Hospital Benchmark" must {

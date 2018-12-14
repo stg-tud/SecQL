@@ -19,10 +19,7 @@ object CompanyBenchmark5 {} // this object is necessary for multi-node testing
 
 class CompanyBenchmark5 extends MultiNodeSpec(CompanyMultiNodeConfig)
 	with BenchmarkMultiNodeSpec
-	//Specifies the table setup
-	with CompanyBenchmark
-	//Specifies the number of measurements/warmups
-	with DefaultPriorityConfig {
+	with CompanyBenchmark {
 
 	override val benchmarkQuery = "query5"
 
@@ -44,7 +41,7 @@ class CompanyBenchmark5 extends MultiNodeSpec(CompanyMultiNodeConfig)
 		override protected def addProductHook(productId: Int): Unit = {
 			// Each product is produced in the factory with the same id
 			// Record all billy products here
-			if (productId < iterations)
+			if (productId < baseIterations)
 				logLatency(productId * latencyRecordingInterval, "queryP")
 		}
 
@@ -67,7 +64,7 @@ class CompanyBenchmark5 extends MultiNodeSpec(CompanyMultiNodeConfig)
 	object ProductionDBNode extends ProductionDBNode {
 		override protected def addFPHook(factoryId: Int, productId: Int): Unit = {
 			// Record all factories products here
-			if (productId < iterations)
+			if (productId < baseIterations)
 				logLatency(factoryId * latencyRecordingInterval, "queryFP")
 		}
 
@@ -91,7 +88,7 @@ class CompanyBenchmark5 extends MultiNodeSpec(CompanyMultiNodeConfig)
 
 	object EmployeesDBNode extends EmployeesDBNode {
 		override protected def addFEHook(factoryId: Int, employeeId: Int): Unit = {
-			logLatency(employeeId, "queryFE")
+			logLatency(employeeId, "query")
 		}
 	}
 
@@ -176,9 +173,9 @@ class CompanyBenchmark5 extends MultiNodeSpec(CompanyMultiNodeConfig)
 		}
 
 		override protected def sleepUntilCold(expectedCount: Int, entryMode: Boolean): Unit =
-		// iterations * 10 adds and iterations * 9 removes = event count, but sometimes removes and adds are aggregated
+		// baseIterations * 10 adds and baseIterations * 9 removes = event count, but sometimes removes and adds are aggregated
 		// which leads to less events. Therefore => entryMode
-			super.sleepUntilCold(iterations, true)
+			super.sleepUntilCold(baseIterations, true)
 	}
 
 	"Hospital Benchmark" must {

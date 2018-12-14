@@ -19,10 +19,7 @@ object CompanyBenchmark8 {} // this object is necessary for multi-node testing
 
 class CompanyBenchmark8 extends MultiNodeSpec(CompanyMultiNodeConfig)
 	with BenchmarkMultiNodeSpec
-	//Specifies the table setup
-	with CompanyBenchmark
-	//Specifies the number of measurements/warmups
-	with DefaultPriorityConfig {
+	with CompanyBenchmark {
 
 	override val benchmarkQuery = "query8"
 
@@ -109,7 +106,7 @@ class CompanyBenchmark8 extends MultiNodeSpec(CompanyMultiNodeConfig)
 		}
 
 		override protected def sleepUntilCold(expectedCount: Int, entryMode: Boolean): Unit =
-			super.sleepUntilCold(iterations / 10 * 4)
+			super.sleepUntilCold(baseIterations / 10 * 4)
 	}
 
 	"Hospital Benchmark" must {

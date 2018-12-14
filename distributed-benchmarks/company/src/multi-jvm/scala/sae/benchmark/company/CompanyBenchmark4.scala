@@ -17,10 +17,7 @@ object CompanyBenchmark4 {} // this object is necessary for multi-node testing
 
 class CompanyBenchmark4 extends MultiNodeSpec(CompanyMultiNodeConfig)
 	with BenchmarkMultiNodeSpec
-	//Specifies the table setup
-	with CompanyBenchmark
-	//Specifies the number of measurements/warmups
-	with DefaultPriorityConfig {
+	with CompanyBenchmark {
 
 	override val benchmarkQuery = "query4"
 
@@ -51,7 +48,7 @@ class CompanyBenchmark4 extends MultiNodeSpec(CompanyMultiNodeConfig)
 		override protected def addSupplierHook(supplierId: Int): Unit = {
 			if (supplierId % 10 == 4) {
 				logLatency(supplierId / 10, "query")
-				logLatency((iterations + supplierId) / 10, "query")
+				logLatency((baseIterations + supplierId) / 10, "query")
 			}
 		}
 
@@ -96,19 +93,19 @@ class CompanyBenchmark4 extends MultiNodeSpec(CompanyMultiNodeConfig)
 			//						s.name.startsWith("Bauhaus")
 			//				)
 
-			// Matches iteration == supplierId, (iteration || iterations + iteration) == componentId
+			// Matches iteration == supplierId, (iteration || baseIterations + iteration) == componentId
 			// if iteration % 10 == (3 || 4)
 			val qSC =
 			SELECT(*) FROM scs WHERE (sc =>
 				sc.price < 60.00 AND sc.inventory >= 4)
 
-			// Matches iteration == supplierId if iteration % 10 == (4 || 6) => 2  * iterations / 10 = #suppliers
+			// Matches iteration == supplierId if iteration % 10 == (4 || 6) => 2  * baseIterations / 10 = #suppliers
 			val qSupplier =
 				SELECT(*
 				) FROM suppliers WHERE (s =>
 					(s.city == "Darmstadt" OR s.city == "Hanau") AND s.name.startsWith("Bauhaus"))
 
-			// ==> 2 scs per supplier => 2 * iterations / 10 = #scs
+			// ==> 2 scs per supplier => 2 * baseIterations / 10 = #scs
 			val qSupplierComponent =
 				SELECT((s: Rep[Supplier], sc: Rep[SC]) =>
 					(s.id, sc.componentId)
@@ -117,7 +114,7 @@ class CompanyBenchmark4 extends MultiNodeSpec(CompanyMultiNodeConfig)
 				) WHERE ((s, sc) =>
 					s.id == sc.supplierId)
 
-			// All components contain wood: 2 * iterations / 10 = #results
+			// All components contain wood: 2 * baseIterations / 10 = #results
 			val query4 =
 				SELECT((c: Rep[Component], sc: Rep[(Int, Int)]) =>
 					(c.id, sc._1)
@@ -147,7 +144,7 @@ class CompanyBenchmark4 extends MultiNodeSpec(CompanyMultiNodeConfig)
 
 		override protected def sleepUntilCold(expectedCount: Int, entryMode: Boolean): Unit = {
 			try {
-				super.sleepUntilCold(2 * iterations / 10)
+				super.sleepUntilCold(2 * baseIterations / 10)
 			}
 			catch {
 				case e: IllegalArgumentException => log.error(e.getMessage + "\nIgnored for this test case, since it tends to produce a few duplicates")

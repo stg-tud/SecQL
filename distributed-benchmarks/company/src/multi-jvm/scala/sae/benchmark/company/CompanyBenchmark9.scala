@@ -18,10 +18,7 @@ object CompanyBenchmark9 {} // this object is necessary for multi-node testing
 
 class CompanyBenchmark9 extends MultiNodeSpec(CompanyMultiNodeConfig)
 	with BenchmarkMultiNodeSpec
-	//Specifies the table setup
-	with CompanyBenchmark
-	//Specifies the number of measurements/warmups
-	with DefaultPriorityConfig {
+	with CompanyBenchmark {
 
 	override val benchmarkQuery = "query9"
 
@@ -46,10 +43,10 @@ class CompanyBenchmark9 extends MultiNodeSpec(CompanyMultiNodeConfig)
 
 	object ProductionDBNode extends ProductionDBNode {
 		override protected def addComponentHook(componentId: Int): Unit = {
-			if (componentId < iterations && componentId % 10 >= 4 && componentId % 10 <= 5)
+			if (componentId < baseIterations && componentId % 10 >= 4 && componentId % 10 <= 5)
 				logLatency(getLatencyIdBySupplierId(componentId), "query")
-			else if (componentId >= iterations && (componentId - iterations) % 10 >= 4 && (componentId - iterations) % 10 <= 5)
-				logLatency(getLatencyIdBySupplierId(componentId - iterations), "query")
+			else if (componentId >= baseIterations && (componentId - baseIterations) % 10 >= 4 && (componentId - baseIterations) % 10 <= 5)
+				logLatency(getLatencyIdBySupplierId(componentId - baseIterations), "query")
 		}
 	}
 
@@ -109,7 +106,7 @@ class CompanyBenchmark9 extends MultiNodeSpec(CompanyMultiNodeConfig)
 						sc.componentId == c.id AND c.material == "Wood"
 					)
 			// All supplier ids related to components including Wood, including duplicates
-			// 	- Each supplier has two components with wood: component1Id = supplierId, component2Id = iterations + supplierId
+			// 	- Each supplier has two components with wood: component1Id = supplierId, component2Id = baseIterations + supplierId
 
 			val qab = qa INTERSECT qb
 			// All supplier ids from Darmstadt with components from Wood
@@ -140,7 +137,7 @@ class CompanyBenchmark9 extends MultiNodeSpec(CompanyMultiNodeConfig)
 		}
 
 		override protected def sleepUntilCold(expectedCount: Int, entryMode: Boolean): Unit =
-			super.sleepUntilCold(iterations / 10 * 2)
+			super.sleepUntilCold(baseIterations / 10 * 2)
 	}
 
 	"Hospital Benchmark" must {
