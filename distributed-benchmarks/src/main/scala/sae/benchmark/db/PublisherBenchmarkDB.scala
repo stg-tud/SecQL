@@ -42,7 +42,7 @@ class PublisherBenchmarkDB[T](
 	/**
 	  * Called whenever demand increased
 	  */
-	override protected def produce(): Unit = {
+	override protected def produce(): Unit = this.synchronized {
 		while (demand > 0 && hasNext) next()
 	}
 
