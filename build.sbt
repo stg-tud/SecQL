@@ -20,8 +20,6 @@ libraryDependencies in ThisBuild ++= Seq(
     "com.typesafe.akka" %% "akka-stream" % akkaVersion
 )
 
-javaOptions in Test += "-Xmx4G"
-
 //Test settings
 parallelExecution in Test := false
 
