@@ -104,9 +104,9 @@ Following are the packages of the i3Ql project in this repository:
 	* __idb-syntax-iql__: Syntax of the query language and transforming of queries into intermediate representation
 	* __idb-intermediate-representation__: Representation and optimization of queries as syntax trees. Uses LMS.
 	* __idb-runtime-compiler__: Transforms syntax trees to runnable "code"
+	* __idb-runtime-distribution__: Implements the deployment and lifecycle of distributed queries 
 	* __idb-integration-test__: End-to-end user tests of queries
 	* __idb-schema-examples__: University database example that is used for testing
-	* __idb-annotations__: Implements custom annotations
 		
 * __demo__: Contains several demo projects for standard i3QL. Please refer to [it's README](demo/README.md)
 

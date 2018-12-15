@@ -1,54 +1,61 @@
 package idb.syntax.iql.runtime
 
 import akka.actor.{ActorPath, ActorRef, ActorSystem, Deploy, Props}
+import akka.pattern.ask
 import akka.remote.RemoteScope
+import akka.util.Timeout
 import idb.Relation
-import idb.remote.Initialize
-import idb.remote.receive.{PathRemoteReceiver, RefRemoteReceiver, RemoteReceiver}
-import idb.syntax.iql.runtime.distribution.RemoteOperator
+import idb.remote.{Initialized, RemoteConnector}
 
+import scala.concurrent.Await
+import scala.concurrent.duration.DurationInt
 
 object RemoteUtils {
+
+	implicit val timeout: Timeout = Timeout(10 seconds)
+
 	/**
-	  * Deploys a relation on the given node.
+	  * Deploys a operator relation on the given node.
+	  *
 	  * @return A reference to an access actor that controls the given relation.
 	  */
-	def deploy[Domain](system : ActorSystem, node : ActorPath)(relation : Relation[Domain]) : ActorRef = {
+	def deployOperator[Domain](system: ActorSystem, node: ActorPath)(relation: Relation[Domain]): ActorRef = {
 
 		val ref = system.actorOf(
-			Props(classOf[RemoteOperator[Domain]], relation)
-				.withDeploy(Deploy(scope=RemoteScope(node.address)))
+			Props(classOf[CompilingRemoteOperator[Domain]], relation)
+				.withDeploy(Deploy(scope = RemoteScope(node.address)))
 		)
 
-		ref ! Initialize
+		Await.result(ref ? Initialized, timeout.duration)
 		ref
 	}
 
 	/**
-	  * Creates an actor for a relation, so that it can be referenced by other remotes.
+	  * Creates an remote actor for a relation, so that it can be referenced by other remotes.
+	  *
 	  * @return A reference to an access actor that controls the given relation.
 	  */
-	def create(system : ActorSystem)(id : String, relation : Relation[_]) : ActorRef = {
-		system.actorOf(Props(classOf[RemoteOperator[_]], relation), id)
+	def createOperator(system: ActorSystem)(id: String, relation: Relation[_]): ActorRef = {
+		system.actorOf(Props(classOf[CompilingRemoteOperator[_]], relation), id)
 	}
 
-	def from[Domain](path : ActorPath) : RemoteReceiver[Domain] = {
-		PathRemoteReceiver[Domain](path)
+	def receiver[Domain](controllerPath: ActorPath): RemoteConnector[Domain] = {
+		RemoteConnector[Domain](controllerPath)
 	}
 
-	def fromWithDeploy[Domain](system : ActorSystem, path : ActorPath) : RemoteReceiver[Domain] = {
-		val r = from[Domain](path)
-		r.deploy(system)
+	def deployReceiver[Domain](system: ActorSystem, operatorPath: ActorPath): RemoteConnector[Domain] = {
+		val r = receiver[Domain](operatorPath)
+		r.initialize(system)
 		r
 	}
 
-	def from[Domain](ref : ActorRef) : RemoteReceiver[Domain] = {
-		RefRemoteReceiver[Domain](ref)
+	def receiver[Domain](controllerRef: ActorRef): RemoteConnector[Domain] = {
+		RemoteConnector[Domain](controllerRef)
 	}
 
-	def fromWithDeploy[Domain](system : ActorSystem, ref : ActorRef) : RemoteReceiver[Domain] = {
-		val r = from[Domain](ref)
-		r.deploy(system)
+	def deployReceiver[Domain](system: ActorSystem, operatorRef: ActorRef): RemoteConnector[Domain] = {
+		val r = receiver[Domain](operatorRef)
+		r.initialize(system)
 		r
 	}
 }

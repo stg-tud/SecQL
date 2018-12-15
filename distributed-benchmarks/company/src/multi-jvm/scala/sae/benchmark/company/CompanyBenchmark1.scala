@@ -17,10 +17,7 @@ object CompanyBenchmark1 {} // this object is necessary for multi-node testing
 
 class CompanyBenchmark1 extends MultiNodeSpec(CompanyMultiNodeConfig)
 	with BenchmarkMultiNodeSpec
-	//Specifies the table setup
-	with CompanyBenchmark
-	//Specifies the number of measurements/warmups
-	with DefaultPriorityConfig {
+	with CompanyBenchmark {
 
 	override val benchmarkQuery = "query1"
 
@@ -41,7 +38,7 @@ class CompanyBenchmark1 extends MultiNodeSpec(CompanyMultiNodeConfig)
 
 	object PublicDBNode extends PublicDBNode {
 		override protected def addProductHook(productId: Int): Unit = {
-			if (productId == iterations - 3) {
+			if (productId == baseIterations - 3) {
 				logLatency(1, "query")
 				logLatency(2, "query")
 			}
@@ -50,15 +47,15 @@ class CompanyBenchmark1 extends MultiNodeSpec(CompanyMultiNodeConfig)
 
 	object ProductionDBNode extends ProductionDBNode {
 		override protected def addComponentHook(componentId: Int): Unit = {
-			if (componentId == iterations - 3)
+			if (componentId == baseIterations - 3)
 				logLatency(1, "query")
-			if (componentId == 2 * iterations - 3)
+			if (componentId == 2 * baseIterations - 3)
 				logLatency(2, "query")
 		}
 
 		override protected def addPCHook(productId: Int, componentId: Int): Unit = {
-			if (productId == iterations - 3)
-				logLatency(if (componentId < iterations) 1 else 2, "query")
+			if (productId == baseIterations - 3)
+				logLatency(if (componentId < baseIterations) 1 else 2, "query")
 		}
 	}
 
@@ -88,7 +85,7 @@ class CompanyBenchmark1 extends MultiNodeSpec(CompanyMultiNodeConfig)
 			val fes: Rep[Query[FE]] = RECLASS(REMOTE GET(employeesHost, "fe-db"), labelEmployees)
 
 			// Get components for the third last Billy product (Third last chosen, in order to avoid preliminary exit)
-			val productName = s"Billy${iterations - 3}"
+			val productName = s"Billy${baseIterations - 3}"
 			val query1 =
 				SELECT((p: Rep[Product], pc: Rep[PC], c: Rep[Component]) =>
 					(c.id, c.name)
@@ -106,14 +103,14 @@ class CompanyBenchmark1 extends MultiNodeSpec(CompanyMultiNodeConfig)
 			// Setup latency recording
 			r.addObserver(new NoOpObserver[ResultType] {
 				override def added(v: ResultType): Unit = {
-					logLatency(if (v._1 < iterations) 1 else 2, "query", false)
+					logLatency(if (v._1 < baseIterations) 1 else 2, "query", false)
 				}
 			})
 
 			r
 		}
 
-		override protected def sleepUntilCold(eventNumber: Int = 0): Unit =
+		override protected def sleepUntilCold(expectedCount: Int, entryMode: Boolean): Unit =
 			super.sleepUntilCold(2)
 	}
 

@@ -57,14 +57,14 @@ trait RelationalAlgebraGenRemoteOperatorsAsIncremental
 
     import IR._
 
-	def remoteFromPath[Domain](path : ActorPath) : Relation[Domain]
+	def remoteRelation[Domain](path : ActorPath) : Relation[Domain]
 	def remoteDeploy[Domain](system : ActorSystem, rel : Relation[Domain], path : ActorPath) : Relation[Domain]
 
     override def compile[Domain : Manifest] (query: Rep[Query[Domain]])(implicit env : QueryEnvironment): Relation[Domain] = {
         query match {
 
 	        case Def (Remote (Def (ActorDef (path, _, _)), _)) =>
-		        remoteFromPath[Domain](path)
+		        remoteRelation[Domain](path)
 
             case Def (Remote (r, _)) =>
 	            val RemoteHost(_, childHostPath) = r.host
@@ -73,7 +73,7 @@ trait RelationalAlgebraGenRemoteOperatorsAsIncremental
 
 
             case Def (ActorDef (path, _, _)) =>
-	            remoteFromPath[Domain](path)
+	            remoteRelation[Domain](path)
 
 
             case Def (Reclassification(r, _)) =>
