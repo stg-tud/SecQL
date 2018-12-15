@@ -2,7 +2,7 @@ package sae.benchmark
 
 import akka.remote.testkit.MultiNodeSpec
 import idb.Relation
-import idb.metrics.{CountEvaluator, ThroughputEvaluator}
+import idb.metrics.{CountEvaluator, MaxMemoryEvaluator, ProcessPerformance, ThroughputEvaluator}
 import idb.query.QueryEnvironment
 import sae.benchmark.db.{BenchmarkDB, BenchmarkDBConfig, PublisherBenchmarkDB, SimpleBenchmarkDB}
 import sae.benchmark.recording.mongo.MongoTransport
@@ -30,6 +30,7 @@ trait Benchmark extends MultiNodeSpec with BenchmarkConfig {
 		val performanceRecorder = new PerformanceRecorder(executionId, nodeName,
 			if (mongoTransferRecords) new MongoTransport[PerformanceRecord](mongoConnectionString, PerformanceRecord) else null)
 		var throughputRecorder: ThroughputRecorder = _
+		val maxMemoryEvaluator = new MaxMemoryEvaluator
 
 		private var currentSection: String = null
 
@@ -117,6 +118,8 @@ trait Benchmark extends MultiNodeSpec with BenchmarkConfig {
 			}
 
 			performanceRecorder.start(performanceRecordingIntervalMs)
+			maxMemoryEvaluator.start()
+			eventRecorder.log("memory.before." + ProcessPerformance.memoryAfterSettling())
 		}
 
 		protected def measurement(): Unit = {
@@ -131,6 +134,9 @@ trait Benchmark extends MultiNodeSpec with BenchmarkConfig {
 		protected def measurementFinished(): Unit = {
 			enterSection("measurement-finished")
 			isMeasurement = false
+			maxMemoryEvaluator.stop()
+			eventRecorder.log("memory.max." + maxMemoryEvaluator.maxMemory)
+			eventRecorder.log("memory.after." + ProcessPerformance.memoryAfterSettling())
 
 			log.info("Recording configuration")
 			val configRecorder = new ConfigRecorder(executionId, nodeName, new MongoTransport[ConfigRecord](mongoConnectionString, ConfigRecord))
