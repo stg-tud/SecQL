@@ -63,15 +63,20 @@ case object CompilerBinding
       super.reset
     }
 
-	override def remoteFromPath[Domain](path: ActorPath): Relation[Domain] =
-		RemoteUtils.from[Domain](path)
+	override def remoteRelation[Domain](path: ActorPath): Relation[Domain] =
+		RemoteUtils.receiver[Domain](path)
 
 	override def remoteDeploy[Domain](system: ActorSystem, rel: Relation[Domain], path: ActorPath): Relation[Domain] = {
-		val ref = RemoteUtils.deploy(system, path)(rel)
-		RemoteUtils.from[Domain](ref)
+		val controllerRef = RemoteUtils.deployOperator(system, path)(rel)
+		RemoteUtils.receiver[Domain](controllerRef)
 	}
 
-	def initialize(relation: Relation[_]): Unit = {
+	/**
+	  *
+	  * @param relation
+	  * @param recursion If set to false, the children of the relation won't be handled recursively
+	  */
+	def initialize(relation: Relation[_], recursion: Boolean = true): Unit = {
 		relation match {
 			case r : SelectionView[_] =>
 				BoxedFunction.compile(r.filter, CompilerBinding)
@@ -94,6 +99,18 @@ case object CompilerBinding
 			case _ =>
 		}
 
-		relation.children.foreach(c => initialize(c))
+		if (recursion)
+			relation.children.foreach(c => initialize(c))
 	}
+
+	def unboxRelation(relation: Relation[_]): Relation[_] =
+		relation match {
+			case r: BoxedEquiJoin[_, _] =>
+				r.equiJoin
+			case r: BoxedAggregationSelfMaintained[_, _, _, _, _] =>
+				r.aggregation
+			case r: BoxedAggregationNotSelfMaintained[_, _, _, _, _] =>
+				r.aggregation
+			case _ => relation
+		}
 }

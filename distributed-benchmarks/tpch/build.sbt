@@ -9,7 +9,8 @@ libraryDependencies ++= Seq(
     "com.typesafe.akka" %% "akka-multi-node-testkit" % akkaVersion
 )
 
-jvmOptions in MultiJvm := Seq("-Xmx1024M", "-Xms256M")
+// Use entire memory configured as container limit
+jvmOptions in MultiJvm := Seq("-XX:+UnlockExperimentalVMOptions", "-XX:+UseCGroupMemoryLimitForHeap", "-XX:MaxRAMFraction=1", "-XshowSettings:vm")
 
 parallelExecution in Test := false
 

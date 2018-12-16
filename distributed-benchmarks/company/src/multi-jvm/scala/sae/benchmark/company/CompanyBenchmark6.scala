@@ -17,10 +17,7 @@ object CompanyBenchmark6 {} // this object is necessary for multi-node testing
 
 class CompanyBenchmark6 extends MultiNodeSpec(CompanyMultiNodeConfig)
 	with BenchmarkMultiNodeSpec
-	//Specifies the table setup
-	with CompanyBenchmark
-	//Specifies the number of measurements/warmups
-	with DefaultPriorityConfig {
+	with CompanyBenchmark {
 
 	override val benchmarkQuery = "query6"
 
@@ -41,14 +38,14 @@ class CompanyBenchmark6 extends MultiNodeSpec(CompanyMultiNodeConfig)
 	type ResultType = (Int, Int)
 
 	// Factors for latency recording
-	val factoryCount: Int = iterations / 2
-	val productCount: Int = iterations / 10
+	val factoryCount: Int = baseIterations / 2
+	val productCount: Int = baseIterations / 10
 
 	def getFactoryNumberById(factoryId: Int): Int =
 		factoryId / 10 * 5 + Math.max(0, factoryId % 10 - 5)
 
 	def getProductNumberById(productId: Int): Int =
-		(productId - iterations) / 10
+		(productId - baseIterations) / 10
 
 	def getLatencyId(factoryNumber: Int, productNumber: Int): Int =
 		factoryNumber * productCount + productNumber
@@ -62,7 +59,7 @@ class CompanyBenchmark6 extends MultiNodeSpec(CompanyMultiNodeConfig)
 
 		override protected def addProductHook(productId: Int): Unit = {
 			// Log every relevant product, because it is quite sure it will be in one of the relevant latency traces
-			if (productId >= iterations && productId % 10 == 0)
+			if (productId >= baseIterations && productId % 10 == 0)
 				logLatency(getProductNumberById(productId) * latencyRecordingInterval, "queryP")
 		}
 
@@ -132,7 +129,7 @@ class CompanyBenchmark6 extends MultiNodeSpec(CompanyMultiNodeConfig)
 				)
 			// Equi joins:
 			//		- Factories, where id % 10 >= 5 (id = iteration)
-			//		- Products, where id >= iterations and id % 10 = 0 (id = iteration)
+			//		- Products, where id >= baseIterations and id % 10 = 0 (id = iteration)
 
 			//Define the root. The operators get distributed here.
 			val r: idb.Relation[ResultType] =
@@ -151,7 +148,7 @@ class CompanyBenchmark6 extends MultiNodeSpec(CompanyMultiNodeConfig)
 			r
 		}
 
-		override protected def sleepUntilCold(expectedEvents: Int = 0): Unit = {
+		override protected def sleepUntilCold(expectedCount: Int, entryMode: Boolean): Unit = {
 			super.sleepUntilCold(factoryCount * productCount)
 		}
 	}

@@ -17,10 +17,7 @@ object CompanyBenchmark10 {} // this object is necessary for multi-node testing
 
 class CompanyBenchmark10 extends MultiNodeSpec(CompanyMultiNodeConfig)
 	with BenchmarkMultiNodeSpec
-	//Specifies the table setup
-	with CompanyBenchmark
-	//Specifies the number of measurements/warmups
-	with DefaultPriorityConfig {
+	with CompanyBenchmark {
 
 	override val benchmarkQuery = "query10"
 
@@ -47,8 +44,8 @@ class CompanyBenchmark10 extends MultiNodeSpec(CompanyMultiNodeConfig)
 	object ProductionDBNode extends ProductionDBNode {
 		override protected def addComponentHook(componentId: Int): Unit = {
 			logLatency(componentId, "query")
-			if (componentId >= iterations)
-				logLatency(componentId - iterations, "query")
+			if (componentId >= baseIterations)
+				logLatency(componentId - baseIterations, "query")
 		}
 
 		override protected def addPCHook(productId: Int, componentId: Int): Unit = {
@@ -108,8 +105,8 @@ class CompanyBenchmark10 extends MultiNodeSpec(CompanyMultiNodeConfig)
 			r
 		}
 
-		override protected def sleepUntilCold(expectedEvents: Int): Unit =
-			super.sleepUntilCold(iterations * 2)
+		override protected def sleepUntilCold(expectedCount: Int, entryMode: Boolean): Unit =
+			super.sleepUntilCold(baseIterations * 2)
 	}
 
 	"Hospital Benchmark" must {

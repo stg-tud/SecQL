@@ -1,13 +1,15 @@
 package sae.benchmark
 
 import akka.remote.testkit.MultiNodeSpec
-import idb.metrics.{CountEvaluator, ThroughputEvaluator}
+import idb.Relation
+import idb.metrics.{CountEvaluator, MaxMemoryEvaluator, ProcessPerformance, ThroughputEvaluator}
 import idb.query.QueryEnvironment
-import idb.{BagTable, Relation, Table}
+import sae.benchmark.db.{BenchmarkDB, BenchmarkDBConfig, PublisherBenchmarkDB, SimpleBenchmarkDB}
 import sae.benchmark.recording.mongo.MongoTransport
 import sae.benchmark.recording.recorders._
 
-import scala.concurrent.TimeoutException
+import scala.concurrent.duration.Duration
+import scala.concurrent.{Await, ExecutionContext, Future, TimeoutException}
 
 /**
   * Created by mirko on 07.11.16.
@@ -28,6 +30,7 @@ trait Benchmark extends MultiNodeSpec with BenchmarkConfig {
 		val performanceRecorder = new PerformanceRecorder(executionId, nodeName,
 			if (mongoTransferRecords) new MongoTransport[PerformanceRecord](mongoConnectionString, PerformanceRecord) else null)
 		var throughputRecorder: ThroughputRecorder = _
+		val maxMemoryEvaluator = new MaxMemoryEvaluator
 
 		private var currentSection: String = null
 
@@ -115,6 +118,8 @@ trait Benchmark extends MultiNodeSpec with BenchmarkConfig {
 			}
 
 			performanceRecorder.start(performanceRecordingIntervalMs)
+			maxMemoryEvaluator.start()
+			eventRecorder.log("memory.before." + ProcessPerformance.memoryAfterSettling())
 		}
 
 		protected def measurement(): Unit = {
@@ -129,6 +134,9 @@ trait Benchmark extends MultiNodeSpec with BenchmarkConfig {
 		protected def measurementFinished(): Unit = {
 			enterSection("measurement-finished")
 			isMeasurement = false
+			eventRecorder.log("memory.after." + ProcessPerformance.memoryAfterSettling())
+			maxMemoryEvaluator.stop()
+			eventRecorder.log("memory.max." + maxMemoryEvaluator.maxMemory)
 
 			log.info("Recording configuration")
 			val configRecorder = new ConfigRecorder(executionId, nodeName, new MongoTransport[ConfigRecord](mongoConnectionString, ConfigRecord))
@@ -143,48 +151,78 @@ trait Benchmark extends MultiNodeSpec with BenchmarkConfig {
 		}
 	}
 
-	class DBNode(
-					nodeName: String,
-					val dbNames: Seq[String],
-					val initIterations: Int,
-					val iterations: Int
-				) extends Node(nodeName) {
+	abstract class DBNode(nodeName: String) extends Node(nodeName) {
 
-		protected def initIteration(dbs: Seq[Table[Any]], iteration: Int): Unit = {}
+		import ExecutionContext.Implicits.global
 
-		protected def iteration(dbs: Seq[Table[Any]], iteration: Int): Unit = {}
+		protected val dbConfigs: Seq[BenchmarkDBConfig[Any]]
+		protected var dbs: Seq[BenchmarkDB[Any]] = _
 
-		var dbs: Seq[Table[Any]] = _
+		protected def execInit(): Unit = {
+			if (dbBackpressure) {
+				val allCompleted = dbs
+					.map(_.asInstanceOf[PublisherBenchmarkDB[Any]])
+					.filter(_.hasSubscribers) // Gets stuck, if no subscriber => no one requests events
+					.map(_.execInit())
+
+				Await.result(Future.sequence(allCompleted), Duration.Inf)
+			}
+			else {
+				var activeDbs = dbs.filter(_.config.initIterations > 0).map(_.asInstanceOf[SimpleBenchmarkDB[Any]])
+				while (activeDbs.nonEmpty)
+					activeDbs = activeDbs.filter(_.baseInitIteration())
+			}
+		}
+
+		protected def execMeasurement(): Unit = {
+			if (dbBackpressure) {
+				val allCompleted = dbs
+					.map(_.asInstanceOf[PublisherBenchmarkDB[Any]])
+					.filter(_.hasSubscribers) // Gets stuck, if no subscriber => no one requests events
+					.map(_.execMeasurement())
+
+				Await.result(Future.sequence(allCompleted), Duration.Inf)
+			}
+			else {
+				var activeDbs = dbs.filter(_.config.iterations > 0).map(_.asInstanceOf[SimpleBenchmarkDB[Any]])
+				while (activeDbs.nonEmpty)
+					activeDbs = activeDbs.filter(_.baseIteration())
+			}
+		}
 
 		override protected def deploy(): Unit = {
 			super.deploy()
 
 			import idb.syntax.iql._
-			dbs = Seq.fill(dbNames.size)(BagTable.empty[Any])
-			dbs.zip(dbNames) foreach (t => REMOTE DEFINE(t._1, t._2))
+			dbs = dbConfigs
+				.map(config =>
+					if (dbBackpressure) new PublisherBenchmarkDB[Any](config)
+					else new SimpleBenchmarkDB[Any](config)
+				)
+			dbs foreach (db => REMOTE DEFINE(db, db.name))
 		}
 
 		override protected def warmupInit(): Unit = {
 			super.warmupInit()
-			(0 until initIterations).foreach(i => initIteration(dbs, i))
+			execInit()
 		}
 
 		override protected def warmup(): Unit = {
 			super.warmup()
-			(0 until iterations).foreach(i => iteration(dbs, i))
+			execMeasurement()
 		}
 
 		override protected def measurementRecordingInit(recorderRelations: Map[String, ThroughputEvaluator[_]]): Unit =
-			super.measurementRecordingInit(Map(dbNames zip dbs map { db => db._1 -> new ThroughputEvaluator(db._2) }: _*))
+			super.measurementRecordingInit(Map(dbs map { db => db.name -> new ThroughputEvaluator(db) }: _*))
 
 		override protected def measurementInit(): Unit = {
 			super.measurementInit()
-			(0 until initIterations).foreach(i => initIteration(dbs, i))
+			execInit()
 		}
 
 		override protected def measurement(): Unit = {
 			super.measurement()
-			(0 until iterations).foreach(i => iteration(dbs, i))
+			execMeasurement()
 		}
 	}
 
@@ -201,36 +239,38 @@ trait Benchmark extends MultiNodeSpec with BenchmarkConfig {
 		  * was reached. If `expectedEvents` is defined as 0 or negative, the relation is assumed to be cold, if the
 		  * eventCound didn't change over the last interval.
 		  *
-		  * @param expectedEvents
+		  * @param expectedCount
+		  * @param entryMode If set to true, the logic is applied against the entry count and not the event count
 		  */
-		protected def sleepUntilCold(expectedEvents: Int = 0) {
-			var lastEventCount = 0L
-			var lastEventCountChange = System.currentTimeMillis()
+		protected def sleepUntilCold(expectedCount: Int = 0, entryMode: Boolean = false) {
+			def count = if (entryMode) countEvaluator.entryCount else countEvaluator.eventCount
+
+			var lastCount = 0L
+			var lastCountChange = System.currentTimeMillis()
 			do {
-				if (lastEventCount != countEvaluator.eventCount) {
-					lastEventCount = countEvaluator.eventCount
-					lastEventCountChange = System.currentTimeMillis()
+				if (lastCount != count) {
+					lastCount = count
+					lastCountChange = System.currentTimeMillis()
 				}
-				else if (lastEventCountChange + waitForBeingColdTimeoutMs < System.currentTimeMillis())
-					throw new TimeoutException(s"Receiving relation becoming cold timeout exceeded (expected events: $expectedEvents, seen: ${countEvaluator.eventCount})")
-				log.info(s"Waiting for receiving relation to become cold... ($lastEventCount events of $expectedEvents)")
+				else if (lastCountChange + waitForBeingColdTimeoutMs < System.currentTimeMillis())
+					throw new TimeoutException(s"Receiving relation becoming cold timeout exceeded (expected: $expectedCount, seen: $count)")
+				log.info(s"Waiting for receiving relation to become cold... ($lastCount of $expectedCount)")
 
 				Thread.sleep(waitForBeingColdIntervalMs)
 
-				if (expectedEvents > 0 && expectedEvents < countEvaluator.eventCount)
-					throw new IllegalArgumentException(s"More events measured in receiving relation than expected (expected: $expectedEvents, seen: ${countEvaluator.eventCount})")
-			} while (expectedEvents > 0 && expectedEvents > countEvaluator.eventCount ||
-				expectedEvents <= 0 && lastEventCount != countEvaluator.eventCount)
-			log.info(s"Receiving relation is cold (${countEvaluator.eventCount} events of $expectedEvents)")
+				if (expectedCount > 0 && expectedCount < count)
+					throw new IllegalArgumentException(s"More events measured in receiving relation than expected (expected: $expectedCount, seen: $count)")
+			} while (expectedCount > 0 && expectedCount > count ||
+				expectedCount <= 0 && lastCount != count)
+			log.info(s"Receiving relation is cold ($count of $expectedCount)")
 		}
 
 		override protected def compile(): Unit = {
 			super.compile()
 
 			r = relation()
+			log.info("Completed compiling, printing query tree")
 			r.print()
-			log.info(s"Waiting for deployment ${waitForDeploymentMs / 1000}s")
-			Thread.sleep(waitForDeploymentMs)
 		}
 
 		override def warmupInit(): Unit = {
@@ -248,8 +288,6 @@ trait Benchmark extends MultiNodeSpec with BenchmarkConfig {
 		override protected def reset(): Unit = {
 			super.reset()
 			r.reset()
-			log.info(s"Waiting for reset ${waitForResetMs / 1000}s")
-			Thread.sleep(waitForResetMs)
 		}
 
 		override protected def measurementInit(): Unit = {

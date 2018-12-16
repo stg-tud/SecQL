@@ -1,6 +1,4 @@
 import sbt._
-import com.typesafe.sbt.SbtMultiJvm.multiJvmSettings
-import com.typesafe.sbt.SbtMultiJvm.MultiJvmKeys.MultiJvm
 
 object sae extends Build {
 
@@ -10,20 +8,44 @@ object sae extends Build {
 	lazy val idb = Project(id = "idb", base = file("idb"))
 		.aggregate(runtime, intermediateRepresentation, schemaExamples, runtimeCompiler, syntax, integrationTest)
 
-	lazy val runtime = Project(id = "idb-runtime", base = file("idb/runtime"))
+	lazy val runtime = Project(
+		id = "idb-runtime",
+		base = file("idb/runtime"))
 
-	lazy val intermediateRepresentation = Project(id = "idb-intermediate-representation", base = file("idb/intermediate-representation"))
+	lazy val intermediateRepresentation = Project(
+		id = "idb-intermediate-representation",
+		base = file("idb/intermediate-representation"))
 
-	lazy val schemaExamples = Project(id = "idb-schema-examples", base = file("idb/schema-examples"))
+	lazy val schemaExamples = Project(
+		id = "idb-schema-examples",
+		base = file("idb/schema-examples"))
 
-	lazy val runtimeCompiler = Project(id = "idb-runtime-compiler", base = file("idb/runtime-compiler"))
-		.dependsOn(schemaExamples % "compile;test", runtime % "compile;test", intermediateRepresentation % "compile;test")
+	lazy val runtimeCompiler = Project(
+		id = "idb-runtime-compiler",
+		base = file("idb/runtime-compiler"))
+		.dependsOn(
+			schemaExamples % "compile;test",
+			runtime % "compile;test",
+			intermediateRepresentation % "compile;test"
+		)
 
-	lazy val syntax = Project(id = "idb-syntax-iql", base = file("idb/syntax-iql"))
-		.dependsOn(runtimeCompiler % "compile;test", schemaExamples % "compile;test", runtime % "compile;test")
+	lazy val syntax = Project(
+		id = "idb-syntax-iql",
+		base = file("idb/syntax-iql"))
+		.dependsOn(
+			runtimeCompiler % "compile;test",
+			schemaExamples % "compile;test",
+			runtime % "compile;test"
+		)
 
-	lazy val integrationTest = Project(id = "idb-integration-test", base = file("idb/integration-test"))
-		.dependsOn(schemaExamples % "test", syntax % "test", intermediateRepresentation % "test")
+	lazy val integrationTest = Project(
+		id = "idb-integration-test",
+		base = file("idb/integration-test"))
+		.dependsOn(
+			schemaExamples % "test",
+			syntax % "test",
+			intermediateRepresentation % "test"
+		)
 
 
 	/*
@@ -37,8 +59,8 @@ object sae extends Build {
 			intermediateRepresentation
 		)
 
-	import com.typesafe.sbt.SbtMultiJvm.multiJvmSettings
 	import com.typesafe.sbt.SbtMultiJvm.MultiJvmKeys.MultiJvm
+	import com.typesafe.sbt.SbtMultiJvm.multiJvmSettings
 
 	lazy val companyBenchmark = Project(id = "company-benchmark", base = file("distributed-benchmarks/company"))
 		.dependsOn(distributedBenchmarks)
@@ -70,7 +92,7 @@ object sae extends Build {
 
 	val virtScala = Option(System.getenv("SCALA_VIRTUALIZED_VERSION")).getOrElse("2.11.2")
 
-	val akkaVersion = "2.4.4"
+	val akkaVersion = "2.5.18"
 
 	val logbackVersion = "1.2.3"
 

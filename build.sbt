@@ -16,10 +16,9 @@ libraryDependencies in ThisBuild ++= Seq(
     "org.scala-lang.virtualized" % "scala-library" % virtScala,
     "org.scala-lang.virtualized" % "scala-compiler" % virtScala,
     "com.typesafe.akka" %% "akka-actor" % akkaVersion,
-    "com.typesafe.akka" %% "akka-remote" % akkaVersion
+    "com.typesafe.akka" %% "akka-remote" % akkaVersion,
+    "com.typesafe.akka" %% "akka-stream" % akkaVersion
 )
-
-javaOptions in Test += "-Xmx4G"
 
 //Test settings
 parallelExecution in Test := false
