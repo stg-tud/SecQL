@@ -134,9 +134,9 @@ trait Benchmark extends MultiNodeSpec with BenchmarkConfig {
 		protected def measurementFinished(): Unit = {
 			enterSection("measurement-finished")
 			isMeasurement = false
+			eventRecorder.log("memory.after." + ProcessPerformance.memoryAfterSettling())
 			maxMemoryEvaluator.stop()
 			eventRecorder.log("memory.max." + maxMemoryEvaluator.maxMemory)
-			eventRecorder.log("memory.after." + ProcessPerformance.memoryAfterSettling())
 
 			log.info("Recording configuration")
 			val configRecorder = new ConfigRecorder(executionId, nodeName, new MongoTransport[ConfigRecord](mongoConnectionString, ConfigRecord))
