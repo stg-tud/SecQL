@@ -1,9 +1,9 @@
 ---
-title: "My Test analysis"
+title: "Analysis"
 output:
-  html_notebook: default
   html_document:
     df_print: paged
+  html_notebook: default
   pdf_document: default
   word_document: default
 ---
@@ -246,6 +246,7 @@ print(ggplot(latencyData, aes(duration, colour=trace, group=trace)) +
         xlab("Latency [ms]") + 
         ylab("") +
         facet_wrap(~execution, scales="free"))
+group_by(latencyData, execution) %>% summarize(var = var(duration), mean = mean(duration), sd = sd(duration)) %>% ungroup
 ```
 
 # Configuration
