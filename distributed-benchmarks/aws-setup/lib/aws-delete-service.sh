@@ -50,8 +50,17 @@ else
 	if [ -z $DISCOVERY_SERVICE_ID ]; then
 		echo ">> Discovery service seems not to exist, skipping servicediscovery deregistraion"
 	else
-		echo ">> Deleting service from servicediscovery"
-		aws servicediscovery delete-service \
-			--id $DISCOVERY_SERVICE_ID
+		while true; do
+			echo ">> Deleting service from servicediscovery"
+			if aws servicediscovery delete-service \
+				--id $DISCOVERY_SERVICE_ID
+			then
+				break
+			else
+				echo ">>>> Failed to delete service (usually that means dependencies are still using it)"
+				echo ">>>> Going to retry in 2 seconds.."
+				sleep 2
+			fi
+		done
 	fi
 fi
