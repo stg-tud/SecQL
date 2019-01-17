@@ -10,9 +10,9 @@ import idb.lms.extensions.RemoteUtils
 import idb.query.{Host, QueryEnvironment}
 
 /**
-  * Reformulated CSPPlacementTransformer with Cost Function according to SecQL Report
+  * CSPPlacementTransformer2 with new cost function for balanced load
   */
-trait CSPPlacementTransformer2
+trait CSPPlacementTransformer3
 	extends QueryTransformerAdapter with QueryTaint {
 	//Defines whether the query tree should be use fragments bigger then single operators
 	val USE_PRIVACY: Boolean = true
