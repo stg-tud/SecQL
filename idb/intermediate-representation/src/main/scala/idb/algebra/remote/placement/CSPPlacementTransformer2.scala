@@ -226,7 +226,7 @@ trait CSPPlacementTransformer2
 		// Load on each server
 		val hostLoad = new Array[IntVar](numHosts)
 		(0 until numHosts) foreach { hostId =>
-			hostLoad(hostId) = new IntVar(store, "host" + hostLoad, 0, maxHostLoad)
+			hostLoad(hostId) = new IntVar(store, "host" + hostId, 0, maxHostLoad)
 		}
 
 		//Define bin packing constraint (= load on all servers)
