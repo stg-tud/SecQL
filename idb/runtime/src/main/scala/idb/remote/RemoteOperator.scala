@@ -25,16 +25,12 @@ class RemoteOperator[Domain](val relation: Relation[Domain])
 	implicit val timeout: Timeout = Timeout(10.seconds)
 	implicit val mat: ActorMaterializer = ActorMaterializer()(context)
 
-	private var outputStream: SourceRef[DataMessage[Domain]] = _
-
 	override def receive: Receive = {
 		case Initialized =>
 			initializeOperator(relation)
 			sender ! Initialize
 		case SetupStream =>
-			if (outputStream == null)
-				outputStream = Await.result(initializeStream(), timeout.duration)
-			sender ! outputStream
+			sender ! Await.result(initializeStream(), timeout.duration)
 		case Reset =>
 			relation.reset()
 			sender ! ResetCompleted
@@ -59,7 +55,7 @@ class RemoteOperator[Domain](val relation: Relation[Domain])
 		relation.children.foreach(initializeOperator)
 	}
 
-	protected def rootRelation(): Relation[Domain] = relation
+	protected def rootRelation: Relation[Domain] = relation
 
 	protected def initializeStream(): Future[SourceRef[DataMessage[Domain]]] = {
 		var stream: Source[DataMessage[Domain], _] = null
