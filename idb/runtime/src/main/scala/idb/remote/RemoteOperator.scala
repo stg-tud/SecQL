@@ -34,11 +34,12 @@ class RemoteOperator[Domain](val relation: Relation[Domain])
 		case Reset =>
 			relation.reset()
 			sender ! ResetCompleted
-		case Print =>
+		case print: Print =>
+			implicit val prefix: String = print.prefix
 			val out = System.out //TODO: How to choose the correct printstream here?
-			out.println(s"Actor[${self.path.toStringWithoutAddress}]{")
-			relation.printNested(out, relation)(" ")
-			out.println(s"}")
+			out.println(s"${prefix}Actor[${self.path.toStringWithoutAddress}]{")
+			relation.printNested(out, relation)
+			out.println(s"$prefix}")
 			sender ! PrintCompleted
 	}
 
