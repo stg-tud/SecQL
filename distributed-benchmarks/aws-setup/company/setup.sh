@@ -16,11 +16,11 @@ aws ecs create-cluster\
 # Make sure cpu and memory combination exist in fargate
 # https://docs.aws.amazon.com/de_de/cli/latest/reference/ecs/register-task-definition.html#options
 ../lib/aws-ecs-register-task-definition.sh i3ql-company-server $SERVER_REPO 1vcpu 2GB
-../lib/aws-ecs-register-task-definition.sh i3ql-company-public $CLIENT_REPO 1vcpu 2GB
-../lib/aws-ecs-register-task-definition.sh i3ql-company-production $CLIENT_REPO 1vcpu 2GB
-../lib/aws-ecs-register-task-definition.sh i3ql-company-purchasing $CLIENT_REPO 1vcpu 2GB
-../lib/aws-ecs-register-task-definition.sh i3ql-company-employees $CLIENT_REPO 1vcpu 2GB
-../lib/aws-ecs-register-task-definition.sh i3ql-company-client $CLIENT_REPO 1vcpu 2GB
+../lib/aws-ecs-register-task-definition.sh i3ql-company-public $CLIENT_REPO 2vcpu 4GB
+../lib/aws-ecs-register-task-definition.sh i3ql-company-production $CLIENT_REPO 2vcpu 4GB
+../lib/aws-ecs-register-task-definition.sh i3ql-company-purchasing $CLIENT_REPO 2vcpu 4GB
+../lib/aws-ecs-register-task-definition.sh i3ql-company-employees $CLIENT_REPO 2vcpu 4GB
+../lib/aws-ecs-register-task-definition.sh i3ql-company-client $CLIENT_REPO 2vcpu 4GB
 
 
 ../lib/aws-ec2-create-subnet.sh $VPC_ID $CLUSTER_NAME $CIDR
