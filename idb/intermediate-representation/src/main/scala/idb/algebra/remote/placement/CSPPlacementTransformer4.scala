@@ -25,14 +25,93 @@ trait CSPPlacementTransformer4
 		with RelationalAlgebraIRSetTheoryOperators
 		with RemoteUtils
 
-	// Dont make it a case class, hash codes must be different for instances with identical property values!
-	class Operator(
-					  val query: IR.Rep[IR.Query[_]],
-					  val load: Float,
-					  val selectivity: Float,
-					  val pinnedTo: Option[Int],
-					  val children: Seq[Operator]
-				  ) {
+
+	import IR._
+
+	var nextOperatorId = 0
+
+	case class Operator(
+						   query: IR.Rep[IR.Query[_]],
+						   pinnedTo: Option[Int],
+						   children: Seq[Operator]
+					   ) {
+		val id: Int = nextOperatorId
+		nextOperatorId += 1
+
+		lazy val selectivity: Float =
+			if (selectivityLib != null) {
+				selectivityLib(query.hashCode)
+			}
+			else
+				query match {
+					//Base
+					case QueryTable(_, _, _, _) => 1f
+					case QueryRelation(_, _, _, _) => 1f
+					case Def(Root(_, _)) => 1f
+					case Def(Materialize(_)) => 1f
+
+					//Basic Operators
+					case Def(Selection(_, _)) => 0.5f
+					case Def(Projection(_, _)) => 1f
+					case Def(CrossProduct(_, _)) =>
+						val c1 = children.head
+						val c2 = children(1)
+						(c1.outgoingLink * c2.outgoingLink) / (c1.outgoingLink + c2.outgoingLink)
+					case Def(EquiJoin(_, _, _)) =>
+						val c1 = children.head
+						val c2 = children(1)
+						2 * Math.min(c1.outgoingLink, c2.outgoingLink) / (c1.outgoingLink + c2.outgoingLink)
+					case Def(DuplicateElimination(_)) => 0.5f
+					case Def(Unnest(_, _)) => 5f
+
+					//Set theory operators
+					case Def(UnionAdd(_, _)) => 1f
+					case Def(UnionMax(_, _)) => 1f
+					case Def(Intersection(_, _)) => 0.5f
+					case Def(Difference(_, _)) => 0.5f
+
+					//Aggregation operators
+					case Def(AggregationSelfMaintained(_, _, _, _, _, _, _, _)) => 2f
+					case Def(AggregationNotSelfMaintained(_, _, _, _, _, _, _, _)) => 2f
+
+					//Remote
+					case Def(Reclassification(_, _)) => 1f
+					case Def(Declassification(_, _)) => 1f
+					case Def(ActorDef(_, _, _)) => 1f
+				}
+
+		lazy val load: Float =
+			query match {
+				//Base
+				case QueryTable(_, _, _, _) => 0f
+				case QueryRelation(_, _, _, _) => 0f
+				case Def(Root(_, _)) => 0f
+				case Def(Materialize(_)) => 2f
+
+				//Basic Operators
+				case Def(Selection(_, _)) => 1f
+				case Def(Projection(_, _)) => 1f
+				case Def(CrossProduct(_, _)) => 8f
+				case Def(EquiJoin(_, _, _)) => 4f
+				case Def(DuplicateElimination(_)) => 2f
+				case Def(Unnest(_, _)) => 1f
+
+				//Set theory operators
+				case Def(UnionAdd(_, _)) => 1f
+				case Def(UnionMax(_, _)) => 4f
+				case Def(Intersection(_, _)) => 4f
+				case Def(Difference(_, _)) => 4f
+
+				//Aggregation operators
+				case Def(AggregationSelfMaintained(_, _, _, _, _, _, _, _)) => 3f
+				case Def(AggregationNotSelfMaintained(_, _, _, _, _, _, _, _)) => 3f
+
+				//Remote
+				case Def(Reclassification(_, _)) => 0f
+				case Def(Declassification(_, _)) => 0f
+				case Def(ActorDef(_, _, _)) => 0f
+			}
+
 		lazy val outgoingLink: Float =
 			if (children.isEmpty) selectivity * 1000
 			else children.map(_.outgoingLink).sum * selectivity
@@ -40,29 +119,53 @@ trait CSPPlacementTransformer4
 		lazy val toList: Seq[Operator] =
 			Seq(this) ++ children.flatMap(child => child.toList)
 
-		override def toString: String = s"($hashCode: load $load, selectivity $selectivity, pinnedTo $pinnedTo, $query, children ${children.map(_.hashCode())}"
+		override def toString: String = s"($id, query: ${query.hashCode}, load $load, selectivity $selectivity, pinnedTo $pinnedTo, $query, children ${children.map(_.id)})\n"
 	}
 
 	case class Link(
-					   sender: Operator,
-					   receiver: Operator,
+					   sender: Int,
+					   receiver: Int,
 					   load: Float
 				   ) {
-		override def toString: String = s"$sender => $receiver: $load"
+		override def toString: String = s"($sender => $receiver: $load)\n"
 	}
+
+	/**
+	  * Maps the hashcode of an operator to it's selectivity. If 0, default values are used. If not null and an
+	  * operator is initialized that is not mentioned in the Map, a NoSuchElementException is thrown
+	  */
+	var selectivityLib: Map[Int, Float] = _
 
 	override def transform[Domain: Manifest](relation: IR.Rep[IR.Query[Domain]])(implicit env: QueryEnvironment): IR.Rep[IR.Query[Domain]] = {
 
-		println("global Defs = ")
-		IR.globalDefsCache.toList.sortBy(t => t._1.id).foreach(println)
+		println("REL" + relation.hashCode())
 
+		//		println("global Defs = ")
+		//		IR.globalDefsCache.toList.sortBy(t => t._1.id).foreach(println)
+
+		// Init selectivity lib
+		selectivityLib =
+			if (SelectivityLib.libs.contains(relation.hashCode())) {
+				println(s"Using predefined selectivity lib for query ${relation.hashCode()}")
+				SelectivityLib.libs(relation.hashCode())
+			}
+			else {
+				println(s"Using default selectivity values for query ${relation.hashCode()}")
+				null
+			}
 
 		val hostList = env.hosts.toSeq
 		val hostId = hostList.zipWithIndex.toMap
 		val hostCapacity = hostList.map(env.priorityOf)
 		//Prepare data for CSP Solver function
 		val operatorTree: Operator = operatorTreeFrom(relation, hostId)
-		val operators: Seq[Operator] = operatorTree.toList
+		val operators: Seq[Operator] = operatorTree.toList.sortBy(_.id)
+		// Make sure ids of operators are correct
+		operators.zipWithIndex foreach { t =>
+			val (operator, id) = t
+			if (id != operator.id)
+				throw new RuntimeException("Operator ID mismatch")
+		}
 
 		val operatorHosts: Seq[Seq[Int]] = operators.map {
 			operator =>
@@ -74,7 +177,7 @@ trait CSPPlacementTransformer4
 
 		val links: Seq[Link] = operators.flatMap { operator =>
 			operator.children.map { childOperator =>
-				Link(childOperator, operator, childOperator.outgoingLink)
+				Link(childOperator.id, operator.id, childOperator.outgoingLink)
 			}
 		}
 
@@ -101,70 +204,67 @@ trait CSPPlacementTransformer4
 	}
 
 	private def operatorTreeFrom(query: IR.Rep[IR.Query[_]], hostId: Map[Host, Int]): Operator = {
-		import IR._
 
 		query match {
 			//Base
 			case QueryTable(_, _, _, h) =>
-				new Operator(query, 0, 1f, Some(hostId(h)), Seq.empty)
+				Operator(query, Some(hostId(h)), Seq.empty)
 			case QueryRelation(_, _, _, h) =>
-				new Operator(query, 0, 1f, Some(hostId(h)), Seq.empty)
+				Operator(query, Some(hostId(h)), Seq.empty)
 			case Def(Root(r, h)) =>
-				new Operator(query, 0, 1f, Some(hostId(h)), Seq(operatorTreeFrom(r, hostId)))
+				Operator(query, Some(hostId(h)), Seq(operatorTreeFrom(r, hostId)))
 			case Def(Materialize(r)) =>
-				new Operator(query, 2, 1f, None, Seq(operatorTreeFrom(r, hostId)))
+				Operator(query, None, Seq(operatorTreeFrom(r, hostId)))
 
 			//Basic Operators
 			case Def(Selection(r, _)) =>
-				new Operator(query, 1, 0.5f, None, Seq(operatorTreeFrom(r, hostId)))
+				Operator(query, None, Seq(operatorTreeFrom(r, hostId)))
 			case Def(Projection(r, _)) =>
-				new Operator(query, 1, 1f, None, Seq(operatorTreeFrom(r, hostId)))
+				Operator(query, None, Seq(operatorTreeFrom(r, hostId)))
 			case Def(CrossProduct(r1, r2)) =>
 				val c1 = operatorTreeFrom(r1, hostId)
 				val c2 = operatorTreeFrom(r2, hostId)
-				val selectivity = (c1.outgoingLink * c2.outgoingLink) / (c1.outgoingLink + c2.outgoingLink)
-				new Operator(query, 8, selectivity, None, Seq(c1, c2))
+				Operator(query, None, Seq(c1, c2))
 			case Def(EquiJoin(r1, r2, _)) =>
 				val c1 = operatorTreeFrom(r1, hostId)
 				val c2 = operatorTreeFrom(r2, hostId)
-				val selectivity = 2 * Math.min(c1.outgoingLink, c2.outgoingLink) / (c1.outgoingLink + c2.outgoingLink)
-				new Operator(query, 4, selectivity, None, Seq(c1, c2))
+				Operator(query, None, Seq(c1, c2))
 			case Def(DuplicateElimination(r)) =>
-				new Operator(query, 2, 0.5f, None, Seq(operatorTreeFrom(r, hostId)))
+				Operator(query, None, Seq(operatorTreeFrom(r, hostId)))
 			case Def(Unnest(r, _)) =>
-				new Operator(query, 1, 5f, None, Seq(operatorTreeFrom(r, hostId)))
+				Operator(query, None, Seq(operatorTreeFrom(r, hostId)))
 
 			//Set theory operators
 			case Def(UnionAdd(r1, r2)) =>
 				val c1 = operatorTreeFrom(r1, hostId)
 				val c2 = operatorTreeFrom(r2, hostId)
-				new Operator(query, 1, 1f, None, Seq(c1, c2))
+				Operator(query, None, Seq(c1, c2))
 			case Def(UnionMax(r1, r2)) =>
 				val c1 = operatorTreeFrom(r1, hostId)
 				val c2 = operatorTreeFrom(r2, hostId)
-				new Operator(query, 4, 1f, None, Seq(c1, c2))
+				Operator(query, None, Seq(c1, c2))
 			case Def(Intersection(r1, r2)) =>
 				val c1 = operatorTreeFrom(r1, hostId)
 				val c2 = operatorTreeFrom(r2, hostId)
-				new Operator(query, 4, 0.5f, None, Seq(c1, c2))
+				Operator(query, None, Seq(c1, c2))
 			case Def(Difference(r1, r2)) =>
 				val c1 = operatorTreeFrom(r1, hostId)
 				val c2 = operatorTreeFrom(r2, hostId)
-				new Operator(query, 4, 0.5f, None, Seq(c1, c2))
+				Operator(query, None, Seq(c1, c2))
 
 			//Aggregation operators
 			case Def(AggregationSelfMaintained(r, _, _, _, _, _, _, _)) =>
-				new Operator(query, 3, 2f, None, Seq(operatorTreeFrom(r, hostId)))
+				Operator(query, None, Seq(operatorTreeFrom(r, hostId)))
 			case Def(AggregationNotSelfMaintained(r, _, _, _, _, _, _, _)) =>
-				new Operator(query, 3, 2f, None, Seq(operatorTreeFrom(r, hostId)))
+				Operator(query, None, Seq(operatorTreeFrom(r, hostId)))
 
 			//Remote
 			case Def(Reclassification(r, _)) =>
-				new Operator(query, 0, 1f, None, Seq(operatorTreeFrom(r, hostId)))
+				Operator(query, None, Seq(operatorTreeFrom(r, hostId)))
 			case Def(Declassification(r, _)) =>
-				new Operator(query, 0, 1f, None, Seq(operatorTreeFrom(r, hostId)))
+				Operator(query, None, Seq(operatorTreeFrom(r, hostId)))
 			case Def(ActorDef(_, h, _)) =>
-				new Operator(query, 0, 1f, Some(hostId(h)), Seq.empty)
+				Operator(query, Some(hostId(h)), Seq.empty)
 		}
 	}
 
@@ -275,8 +375,8 @@ trait CSPPlacementTransformer4
 			store.impose(
 				new IfThenElse(
 					new XeqY(
-						operatorHost(operators.indexOf(link.sender)),
-						operatorHost(operators.indexOf(link.receiver))),
+						operatorHost(link.sender),
+						operatorHost(link.receiver)),
 					new XeqC(linkLoad(linkId), 0),
 					new XeqC(linkLoad(linkId), link.load.toInt)
 				)
