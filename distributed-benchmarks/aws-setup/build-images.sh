@@ -8,8 +8,8 @@ cp test-server.key* test-server
 cp test-server.key* test-client
 
 # Build the images
-docker build -t i3ql-test-server test-server
-docker build -t i3ql-test-client test-client
+docker build --no-cache -t i3ql-test-server test-server
+docker build --no-cache -t i3ql-test-client test-client
 
 # Cleanup keys from image directories
 rm test-server/test-server.key*

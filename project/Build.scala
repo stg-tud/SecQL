@@ -72,11 +72,6 @@ object sae extends Build {
 		.settings(multiJvmSettings)
 		.configs(MultiJvm)
 
-	lazy val tpchBenchmark = Project(id = "tpch-benchmark", base = file("distributed-benchmarks/tpch"))
-		.dependsOn(distributedBenchmarks)
-		.settings(multiJvmSettings)
-		.configs(MultiJvm)
-
 	/*
 	Project Test Data
 	*/
@@ -87,7 +82,7 @@ object sae extends Build {
 	Root Project
 	*/
 	lazy val root = Project(id = "sae", base = file("."))
-		.aggregate(runtime, intermediateRepresentation, schemaExamples, runtimeCompiler, syntax, integrationTest, testData, distributedBenchmarks, companyBenchmark, hospitalBenchmark, tpchBenchmark)
+		.aggregate(runtime, intermediateRepresentation, schemaExamples, runtimeCompiler, syntax, integrationTest, testData, distributedBenchmarks, companyBenchmark, hospitalBenchmark)
 
 
 	val virtScala = Option(System.getenv("SCALA_VIRTUALIZED_VERSION")).getOrElse("2.11.2")

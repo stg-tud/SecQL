@@ -7,5 +7,5 @@ case object Initialized extends ControlMessage
 case object SetupStream extends ControlMessage
 case object Reset extends ControlMessage
 case object ResetCompleted extends ControlMessage
-case object Print extends ControlMessage
+case class Print(prefix: String) extends ControlMessage
 case object PrintCompleted extends ControlMessage

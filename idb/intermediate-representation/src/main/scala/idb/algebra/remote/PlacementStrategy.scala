@@ -1,12 +1,11 @@
 package idb.algebra.remote
 
-import idb.algebra.{RelationalAlgebraIREssentialsPackage, RelationalAlgebraIROperatorsPackage}
-import idb.algebra.remote.opt.StandardRemoteOptimization
-import idb.algebra.remote.placement.{CSPPlacementTransformer, StandardPlacementTransformer}
+import idb.algebra.RelationalAlgebraIREssentialsPackage
+import idb.algebra.remote.placement._
 import idb.algebra.remote.taint.StandardQueryTaint
 
 trait PlacementStrategy
-	extends CSPPlacementTransformer
+	extends CSPPlacementTransformer3
 	with StandardQueryTaint
 	//with StandardRemoteOptimization
 {

@@ -15,7 +15,8 @@ case class BoxedFunction[A, B](code : ClassCode[A,B]) extends (A => B) {
 
 	def apply(x : A) : B = {
 		if (f == null) {
-			Predef.println("[BoxedFunction] Warning! Function is not defined, x=" + x)
+//			@TODO Fix bug, which makes this happen in some distributed deployments
+//			Predef.println("[BoxedFunction] Warning! Function is not defined, x=" + x)
 			return null.asInstanceOf[B]
 		}
 

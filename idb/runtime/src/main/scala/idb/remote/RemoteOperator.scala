@@ -25,24 +25,21 @@ class RemoteOperator[Domain](val relation: Relation[Domain])
 	implicit val timeout: Timeout = Timeout(10.seconds)
 	implicit val mat: ActorMaterializer = ActorMaterializer()(context)
 
-	private var outputStream: SourceRef[DataMessage[Domain]] = _
-
 	override def receive: Receive = {
 		case Initialized =>
 			initializeOperator(relation)
 			sender ! Initialize
 		case SetupStream =>
-			if (outputStream == null)
-				outputStream = Await.result(initializeStream(), timeout.duration)
-			sender ! outputStream
+			sender ! Await.result(streamRef(), timeout.duration)
 		case Reset =>
 			relation.reset()
 			sender ! ResetCompleted
-		case Print =>
+		case print: Print =>
+			implicit val prefix: String = print.prefix
 			val out = System.out //TODO: How to choose the correct printstream here?
-			out.println(s"Actor[${self.path.toStringWithoutAddress}]{")
-			relation.printNested(out, relation)(" ")
-			out.println(s"}")
+			out.println(s"${prefix}Actor[${self.path.toStringWithoutAddress}]{")
+			relation.printNested(out, relation)
+			out.println(s"$prefix}")
 			sender ! PrintCompleted
 	}
 
@@ -59,15 +56,14 @@ class RemoteOperator[Domain](val relation: Relation[Domain])
 		relation.children.foreach(initializeOperator)
 	}
 
-	protected def rootRelation(): Relation[Domain] = relation
+	protected def rootRelation: Relation[Domain] = relation
 
-	protected def initializeStream(): Future[SourceRef[DataMessage[Domain]]] = {
-		var stream: Source[DataMessage[Domain], _] = null
-
+	protected lazy val stream: Source[DataMessage[Domain], _] = {
 		if (remoteConnections.isEmpty) {
 			// This operator is a leaf in the tree and therefore a data source itself
 			log.info(s"Initializing leaf remote operator of $relation")
-			stream = relation match {
+
+			relation match {
 				// If already a publisher, pull based back pressure can be ensured without loss
 				case view: RemotePublisher[Domain] =>
 					Source.fromPublisher(view)
@@ -80,7 +76,8 @@ class RemoteOperator[Domain](val relation: Relation[Domain])
 			val remoteConnection = remoteConnections(0)
 			val remoteSource = remoteConnection.source
 			log.info(s"Initializing unary remote operator of $relation")
-			stream = remoteSource
+
+			remoteSource
 				.mapConcat(StreamAdapter.wrapLinearOperatorTree(remoteConnection, rootRelation))
 		}
 		else {
@@ -88,10 +85,12 @@ class RemoteOperator[Domain](val relation: Relation[Domain])
 			val firstSource = remoteConnections(0).source
 			val secondSource = remoteConnections(1).source
 			val otherSources = remoteConnections.slice(2, remoteConnections.size).map(_.source)
-			stream = Source.combine(firstSource, secondSource, otherSources: _*)(WrapOperatorTree(remoteConnections, rootRelation))
-		}
 
-		stream.runWith(StreamRefs.sourceRef())
+			Source.combine(firstSource, secondSource, otherSources: _*)(WrapOperatorTree(remoteConnections, rootRelation))
+		}
 	}
+
+	protected def streamRef(): Future[SourceRef[DataMessage[Domain]]] =
+		stream.runWith(StreamRefs.sourceRef())
 
 }

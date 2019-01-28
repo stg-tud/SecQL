@@ -1,5 +1,7 @@
 package sae.benchmark
 
+import idb.metrics.ProcessPerformance
+
 /**
   * Created by mirko on 07.11.16.
   */
@@ -22,6 +24,10 @@ trait BenchmarkConfig {
 
 	val mongoTransferRecords: Boolean = false
 	val mongoConnectionString: String
+
+	// Mainly included in config in order to get recorded as config property
+	val memory: Long = ProcessPerformance.availableMemory
+	val cores: Int = ProcessPerformance.availableCores
 
 	// Append unique id, if runs shall be distinguishable
 	def executionId: String = {

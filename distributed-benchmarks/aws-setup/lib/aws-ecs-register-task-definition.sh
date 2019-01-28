@@ -21,7 +21,8 @@ aws ecs register-task-definition \
 				\"hostPort\": 22,
 				\"protocol\": \"tcp\"
 			}],
-			\"essential\": true
+			\"essential\": true,
+			\"memory\": $((1024 * $(echo $4 | sed 's/[^0-9]//g')))
 		}]" \
 	--cpu $3 \
 	--memory $4 \

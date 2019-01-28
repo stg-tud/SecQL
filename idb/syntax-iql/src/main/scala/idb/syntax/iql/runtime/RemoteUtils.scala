@@ -12,7 +12,7 @@ import scala.concurrent.duration.DurationInt
 
 object RemoteUtils {
 
-	implicit val timeout: Timeout = Timeout(10 seconds)
+	implicit val timeout: Timeout = Timeout(60 seconds)
 
 	/**
 	  * Deploys a operator relation on the given node.

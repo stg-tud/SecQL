@@ -72,8 +72,8 @@ case class RemoteConnector[Domain](remoteOperatorRef: ActorRef, remoteOperatorPa
 	override protected[idb] def resetInternal(): Unit =
 		Await.result(remoteOperatorActor ? Reset, timeout.duration)
 
-	override protected[idb] def printInternal(out: PrintStream)(implicit prefix: String = " "): Unit =
-		Await.result(remoteOperatorActor ? Print, timeout.duration)
+	override protected[idb] def printInternal(out: PrintStream)(implicit prefix: String = ""): Unit =
+		Await.result(remoteOperatorActor ? Print(prefix), timeout.duration)
 
 	override def isSet: Boolean = false
 

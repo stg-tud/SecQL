@@ -42,6 +42,7 @@ git remote add origin $REMOTE_REPO
 set +e # Pull branch, if it already exists, ignore if it doesn't
 git pull origin $ID
 set -e # Re-enable exit on errors
+git add *.json
 git commit -m "Measurements $ID via push-measurements.sh"
 git push -u origin $ID
 

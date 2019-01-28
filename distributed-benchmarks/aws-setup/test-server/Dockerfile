@@ -1,7 +1,8 @@
 FROM dsoko2/i3ql-lms:0.3.0-8u181-jdk
 
-# Install SSH, RSYNC, git, vim, nano and dialog
-RUN apt-get update && apt-get install -y openssh-server rsync git-core vim nano dialog
+# Install SSH, RSYNC, git, git-lfs, vim, nano and dialog
+RUN curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | bash
+RUN apt-get update && apt-get install -y openssh-server rsync git-core git-lfs vim nano dialog
 RUN mkdir /var/run/sshd
 # Disable known host checking: Makes vulnurable towards man-in-the-middle attacks!
 RUN sed -i 's/#   StrictHostKeyChecking ask/   StrictHostKeyChecking no/' /etc/ssh/ssh_config
@@ -21,7 +22,6 @@ RUN echo "export PATH=/opt/mongodb/bin:$PATH" >> ~/.bashrc
 RUN cd /var && git clone -b distributed-tests -v https://github.com/DSoko2/i3QL.git
 RUN cd /var/i3QL && sbt company-benchmark/multi-jvm:compile
 RUN cd /var/i3QL && sbt hospital-benchmark/multi-jvm:compile
-RUN cd /var/i3QL && sbt tpch-benchmark/multi-jvm:compile
 
 # Add additional hosts file, which need to be added to /etc/hosts in CMD, since docker
 # reinitalizes /etc/hosts on every boot

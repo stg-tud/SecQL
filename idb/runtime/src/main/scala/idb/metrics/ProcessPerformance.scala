@@ -86,4 +86,18 @@ object ProcessPerformance {
 		settledMemory
 	}
 
+	/**
+	  * Maximum heap size the JVM might grow to
+	  *
+	  * @return Max memory in bytes
+	  */
+	def availableMemory: Long = runtime.maxMemory()
+
+	/**
+	  * Number of system CPU cores
+	  *
+	  * @return
+	  */
+	def availableCores: Int = runtime.availableProcessors()
+
 }
