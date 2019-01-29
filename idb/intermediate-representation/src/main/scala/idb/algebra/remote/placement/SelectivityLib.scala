@@ -155,7 +155,7 @@ object SelectivityLib {
 		-1561146018 -> Map(
 			-1561146018 -> 1f,
 			909673808 -> 1f,
-			280778412 -> (0.5f * companyIterations * 0.2f * companyIterations) / (0.7f * companyIterations),
+			280778412 -> Math.min(1000f, (0.5f * companyIterations * 0.2f * companyIterations) / (0.7f * companyIterations)),
 			459859312 -> 0.5f, 795854755 -> 0.1f,
 			937862449 -> 1f, 818387364 -> 1f,
 			369114374 -> 1f, -1669410282 -> 1f
