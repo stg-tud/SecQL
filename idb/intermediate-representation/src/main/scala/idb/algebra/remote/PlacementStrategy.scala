@@ -5,7 +5,7 @@ import idb.algebra.remote.placement._
 import idb.algebra.remote.taint.StandardQueryTaint
 
 trait PlacementStrategy
-	extends CSPPlacementTransformer4
+	extends CSPPlacementTransformer5
 	with StandardQueryTaint
 	//with StandardRemoteOptimization
 {
