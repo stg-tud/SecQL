@@ -8,15 +8,21 @@ import idb.algebra.remote.taint.QueryTaint
 import idb.lms.extensions.RemoteUtils
 import idb.query.{Host, QueryEnvironment}
 
-/**
-  *
-  */
 trait CSPPlacementTransformer5
 	extends QueryTransformerAdapter with QueryTaint {
 	//Defines whether the query tree should be use fragments bigger then single operators
 	val USE_PRIVACY: Boolean = true
 	// If true, total cost is network cost * load coast, otherwise it is independent sum with network priority
 	val TOTAL_COST_PRODUCT: Boolean = true
+	// If TOTAL_COST_PRODUCT is false, this weight is applied on the network cost (weight for load cost is 1)
+	val NETWORK_COST_WEIGHT: Double = 1000D
+	// If true, SeqQL host load cost is sum(operator load/host capacity),
+	// otherwise sum((sum(host operators load)/host capacity) ^2)
+	val SECQL_LOAD_COST: Boolean = false
+	// If false, input data dependent operator load values are chosen, otherwise static SecQL values
+	val SECQL_OPERATOR_LOADS: Boolean = false
+	// CSP solving timeout in seconds
+	val TIMEOUT = 30
 
 	val IR: RelationalAlgebraBase
 		with RelationalAlgebraIRBasicOperators
@@ -38,21 +44,21 @@ trait CSPPlacementTransformer5
 		val id: Int = nextOperatorId
 		nextOperatorId += 1
 
-		lazy val selectivity: Float =
+		lazy val selectivity: Double =
 			if (selectivityLib != null) {
 				selectivityLib(query.hashCode)
 			}
 			else
 				query match {
 					//Base
-					case QueryTable(_, _, _, _) => 1f
-					case QueryRelation(_, _, _, _) => 1f
-					case Def(Root(_, _)) => 1f
-					case Def(Materialize(_)) => 1f
+					case QueryTable(_, _, _, _) => 1d
+					case QueryRelation(_, _, _, _) => 1d
+					case Def(Root(_, _)) => 1d
+					case Def(Materialize(_)) => 1d
 
 					//Basic Operators
-					case Def(Selection(_, _)) => 0.5f
-					case Def(Projection(_, _)) => 1f
+					case Def(Selection(_, _)) => 0.5d
+					case Def(Projection(_, _)) => 1d
 					case Def(CrossProduct(_, _)) =>
 						val c1 = children.head
 						val c2 = children(1)
@@ -61,58 +67,71 @@ trait CSPPlacementTransformer5
 						val c1 = children.head
 						val c2 = children(1)
 						2 * Math.min(c1.outgoingLink, c2.outgoingLink) / (c1.outgoingLink + c2.outgoingLink)
-					case Def(DuplicateElimination(_)) => 0.5f
-					case Def(Unnest(_, _)) => 5f
+					case Def(DuplicateElimination(_)) => 0.5d
+					case Def(Unnest(_, _)) => 5d
 
 					//Set theory operators
-					case Def(UnionAdd(_, _)) => 1f
-					case Def(UnionMax(_, _)) => 1f
-					case Def(Intersection(_, _)) => 0.5f
-					case Def(Difference(_, _)) => 0.5f
+					case Def(UnionAdd(_, _)) => 1d
+					case Def(UnionMax(_, _)) => 1d
+					case Def(Intersection(_, _)) => 0.5d
+					case Def(Difference(_, _)) => 0.5d
 
 					//Aggregation operators
-					case Def(AggregationSelfMaintained(_, _, _, _, _, _, _, _)) => 2f
-					case Def(AggregationNotSelfMaintained(_, _, _, _, _, _, _, _)) => 2f
+					case Def(AggregationSelfMaintained(_, _, _, _, _, _, _, _)) => 2d
+					case Def(AggregationNotSelfMaintained(_, _, _, _, _, _, _, _)) => 2d
 
 					//Remote
-					case Def(Reclassification(_, _)) => 1f
-					case Def(Declassification(_, _)) => 1f
-					case Def(ActorDef(_, _, _)) => 1f
+					case Def(Reclassification(_, _)) => 1d
+					case Def(Declassification(_, _)) => 1d
+					case Def(ActorDef(_, _, _)) => 1d
 				}
 
-		lazy val load: Float =
+		lazy val load: Double =
 			query match {
 				//Base
-				case QueryTable(_, _, _, _) => 0f
-				case QueryRelation(_, _, _, _) => 0f
-				case Def(Root(_, _)) => 0f
-				case Def(Materialize(_)) => 2f
+				case QueryTable(_, _, _, _) => 0d
+				case QueryRelation(_, _, _, _) => 0d
+				case Def(Root(_, _)) => 0d
+				case Def(Materialize(_)) =>
+					if (SECQL_OPERATOR_LOADS) 2d else 2d * children.head.outgoingLink
 
 				//Basic Operators
-				case Def(Selection(_, _)) => 1f
-				case Def(Projection(_, _)) => 1f
-				case Def(CrossProduct(_, _)) => 8f
-				case Def(EquiJoin(_, _, _)) => 4f
-				case Def(DuplicateElimination(_)) => 2f
-				case Def(Unnest(_, _)) => 1f
+				case Def(Selection(_, _)) =>
+					if (SECQL_OPERATOR_LOADS) 1d else 1d * children.head.outgoingLink
+				case Def(Projection(_, _)) =>
+					if (SECQL_OPERATOR_LOADS) 1d else 1d * children.head.outgoingLink
+				case Def(CrossProduct(_, _)) =>
+					if (SECQL_OPERATOR_LOADS) 8d else children.map(_.outgoingLink).product
+				case Def(EquiJoin(_, _, _)) =>
+					if (SECQL_OPERATOR_LOADS) 4d else (2d + selectivity) * children.map(_.outgoingLink).sum
+				case Def(DuplicateElimination(_)) =>
+					if (SECQL_OPERATOR_LOADS) 2d else 2d * children.head.outgoingLink
+				case Def(Unnest(_, _)) =>
+					if (SECQL_OPERATOR_LOADS) 1d else 1d * children.head.outgoingLink
 
 				//Set theory operators
-				case Def(UnionAdd(_, _)) => 1f
-				case Def(UnionMax(_, _)) => 4f
-				case Def(Intersection(_, _)) => 4f
-				case Def(Difference(_, _)) => 4f
+				case Def(UnionAdd(_, _)) =>
+					if (SECQL_OPERATOR_LOADS) 1d else 1d * children.head.outgoingLink
+				case Def(UnionMax(_, _)) =>
+					if (SECQL_OPERATOR_LOADS) 4d else 2d * children.head.outgoingLink
+				case Def(Intersection(_, _)) =>
+					if (SECQL_OPERATOR_LOADS) 4d else 2d * children.head.outgoingLink
+				case Def(Difference(_, _)) =>
+					if (SECQL_OPERATOR_LOADS) 4d else 2d * children.head.outgoingLink
 
 				//Aggregation operators
-				case Def(AggregationSelfMaintained(_, _, _, _, _, _, _, _)) => 3f
-				case Def(AggregationNotSelfMaintained(_, _, _, _, _, _, _, _)) => 3f
+				case Def(AggregationSelfMaintained(_, _, _, _, _, _, _, _)) =>
+					if (SECQL_OPERATOR_LOADS) 3d else (2d + selectivity) * children.map(_.outgoingLink).sum
+				case Def(AggregationNotSelfMaintained(_, _, _, _, _, _, _, _)) =>
+					if (SECQL_OPERATOR_LOADS) 3d else (2d + selectivity) * children.map(_.outgoingLink).sum
 
 				//Remote
-				case Def(Reclassification(_, _)) => 0f
-				case Def(Declassification(_, _)) => 0f
-				case Def(ActorDef(_, _, _)) => 0f
+				case Def(Reclassification(_, _)) => 0d
+				case Def(Declassification(_, _)) => 0d
+				case Def(ActorDef(_, _, _)) => 0d
 			}
 
-		lazy val outgoingLink: Float =
+		lazy val outgoingLink: Double =
 			if (children.isEmpty) selectivity * 1000
 			else children.map(_.outgoingLink).sum * selectivity
 
@@ -125,7 +144,7 @@ trait CSPPlacementTransformer5
 	case class Link(
 					   sender: Int,
 					   receiver: Int,
-					   load: Float
+					   load: Double
 				   ) {
 		override def toString: String = s"($sender => $receiver: $load)\n"
 	}
@@ -270,12 +289,11 @@ trait CSPPlacementTransformer5
 
 	private def computePlacement(
 									operators: Seq[Operator],
-									operatorHosts: Seq[Seq[Int]],
+									operatorHostCandidates: Seq[Seq[Int]],
 									links: Seq[Link],
 									hostCapacity: Seq[Int]
 								): Seq[Int] = {
 		import org.jacop.constraints._
-		import org.jacop.constraints.binpacking.Binpacking
 		import org.jacop.core._
 		import org.jacop.floats.constraints._
 		import org.jacop.floats.core._
@@ -283,7 +301,7 @@ trait CSPPlacementTransformer5
 
 		println("Input: ")
 		println("operators: " + operators)
-		println("operator hosts: " + operatorHosts)
+		println("operator hosts: " + operatorHostCandidates)
 		println("links: " + links)
 		println("capacities: " + hostCapacity)
 
@@ -300,131 +318,144 @@ trait CSPPlacementTransformer5
 		// Host on which the operator is placed on (operator -> host)
 		val operatorHost = new Array[IntVar](numOperators)
 		// Operator load (operator -> load)
-		val operatorLoad = new Array[Int](numOperators)
+		val operatorLoad = new Array[Double](numOperators)
 		operators.zipWithIndex foreach { t =>
 			val (operator, operatorId) = t
 			operatorHost(operatorId) = new IntVar(store, s"operator${operatorId}host", 0, numHosts - 1)
-			operatorLoad(operatorId) = operator.load.toInt
-		}
 
-		// Add host placement constraints
-		operators.zipWithIndex.foreach { t =>
-			val (operator, operatorId) = t
-
+			// Add host placement constraints
 			// Pin operator on host if needed
 			operator.pinnedTo match {
 				case Some(hostId) => store.impose(new XeqC(operatorHost(operatorId), hostId))
 				case None =>
 			}
-
 			// Add invalid operator on host placement constraints
 			(0 until numHosts) foreach { hostId =>
-				if (!operatorHosts(operatorId).contains(hostId))
+				if (!operatorHostCandidates(operatorId).contains(hostId))
 					store.impose(new XneqC(operatorHost(operatorId), hostId))
+			}
+
+			// Define operator load
+			operatorLoad(operatorId) = operator.load
+		}
+
+		// Load on each host  (sum of operator loads, which are placed on the host)
+		val hostLoad = new Array[FloatVar](numHosts)
+		// Cost value of the load on a host, normalized to [0, 1]
+		val hostLoadCostNormed = new Array[FloatVar](numHosts)
+		(0 until numHosts) foreach { host =>
+			// Init host load (constraints are defined in bin-packing)
+			hostLoad(host) = new FloatVar(store, s"host${host}load", 0, operatorLoad.sum)
+
+			// Define load cost per host
+			if (SECQL_LOAD_COST) {
+				// Domain [0, operator load sum], because capacity must be >= 1
+				val hostLoadCost = new FloatVar(store, s"host${host}loadCost" + host, 0, operatorLoad.sum / hostCapacity.min)
+				// host load cost = host operators load / host capacity
+				store.impose(new PdivCeqR(hostLoad(host), hostCapacity(host), hostLoadCost))
+
+				// Norm cost to be in [0, 1] (even after summation of all host costs)
+				hostLoadCostNormed(host) = new FloatVar(store, s"host${host}loadCostNormed" + host, 0, 1)
+				store.impose(new PmulCeqR(hostLoadCost, hostCapacity.min.toDouble / operatorLoad.sum, hostLoadCostNormed(host)))
+			}
+			else {
+				val hostLoadQuotient = new FloatVar(store, s"host${host}loadQuotient", 0, operatorLoad.sum / hostCapacity(host))
+				// host load quotient = host operators load / host capacity, [0, operator load sum / host capacity <= operator load sum]
+				store.impose(new PdivCeqR(hostLoad(host), hostCapacity(host), hostLoadQuotient))
+
+				// Domain [0, (operator load sum / host capacity)^2 <= operator load sum ^2], because capacity must be >= 1
+				val hostLoadCost = new FloatVar(store, s"host${host}loadCost" + host, 0, Math.pow(operatorLoad.sum / hostCapacity(host), 2))
+				// host load cost = host load quotient ^2
+				store.impose(new PmulQeqR(hostLoadQuotient, hostLoadQuotient, hostLoadCost))
+
+				// Norm cost to be in [0, 1] (even after summation of all host costs)
+				hostLoadCostNormed(host) = new FloatVar(store, s"host${host}loadCostNormed" + host, 0, 1)
+				store.impose(new PmulCeqR(hostLoadCost, Math.pow(hostCapacity.min.toDouble / operatorLoad.sum, 2), hostLoadCostNormed(host)))
 			}
 		}
 
-		val operatorLoadSum = operatorLoad.sum
-		val hostCapacitySum = hostCapacity.sum
-		val maxCapacitySqr = Math.pow(hostCapacitySum, 2).toInt
-
-		// Load on each host  (sum of operator loads on the host)
-		val hostLoad = new Array[IntVar](numHosts)
-		val hostLoadFloat = new Array[FloatVar](numHosts)
-		// hostLoad * (capacity sum / (load sum * host capacity))
-		val hostLoadQuotient = new Array[FloatVar](numHosts)
-		// sqr(hostLoadQuotient)s
-		val hostLoadCostFloat = new Array[FloatVar](numHosts)
-		// Reduce variance in conversion (influence of range) by multiplication with 1000
-		val hostLoadCost1000 = new Array[IntVar](numHosts)
-		val hostLoadCostFloat1000 = new Array[FloatVar](numHosts)
+		// Setup bin packing/operator to host assignment
+		val placementLoads = new Array[Array[FloatVar]](numHosts)
 		(0 until numHosts) foreach { host =>
-			hostLoad(host) = new IntVar(store, s"host${host}load", 0, operatorLoadSum)
-			hostLoadFloat(host) = new FloatVar(store, s"host${host}load", 0, operatorLoadSum)
-			store.impose(new XeqP(hostLoad(host), hostLoadFloat(host)))
+			placementLoads(host) = new Array[FloatVar](numOperators)
+			(0 until numOperators) foreach { operatorId =>
+				placementLoads(host)(operatorId) = new FloatVar(store, s"host${host}Operator${operatorId}Load", 0, operatorLoad(operatorId))
 
-			hostLoadQuotient(host) = new FloatVar(store, s"host${host}loadQuotient", 0, hostCapacitySum)
-			store.impose(new PmulCeqR(hostLoadFloat(host), hostCapacitySum.toDouble / (operatorLoadSum * hostCapacity(host)), hostLoadQuotient(host)))
+				// If placements entry is 1, set load value in placementLoads
+				store.impose(
+					new IfThenElse(
+						new XeqC(operatorHost(operatorId), host),
+						new PeqC(placementLoads(host)(operatorId), operatorLoad(operatorId)),
+						new PeqC(placementLoads(host)(operatorId), 0)
+					)
+				)
+			}
 
-			hostLoadCostFloat(host) = new FloatVar(store, s"host${host}loadCost" + host, 0, maxCapacitySqr)
-			store.impose(new PmulQeqR(hostLoadQuotient(host), hostLoadQuotient(host), hostLoadCostFloat(host)))
-
-			hostLoadCost1000(host) = new IntVar(store, s"host${host}loadCost1000" + host, 0, maxCapacitySqr * 1000)
-			hostLoadCostFloat1000(host) = new FloatVar(store, s"host${host}loadCost" + host, 0, maxCapacitySqr * 1000)
-			store.impose(new XeqP(hostLoadCost1000(host), hostLoadCostFloat1000(host)))
-			store.impose(new PmulCeqR(hostLoadCostFloat(host), 1000, hostLoadCostFloat1000(host)))
+			// Sum up all placed loads on a host => hostLoad
+			store.impose(new SumFloat(placementLoads(host), "==", hostLoad(host)))
 		}
-		//Define bin packing constraint (= load on all servers)
-		// host load(i) = sum_j(operatorLoad(j) | operatorHost(j) == i)
-		store.impose(new Binpacking(operatorHost, hostLoad, operatorLoad))
 
+		// Total load cost in [0, 1]
+		val loadCost = new FloatVar(store, "loadCost", 0, 1)
+		store.impose(new SumFloat(hostLoadCostNormed, "==", loadCost))
 
-		val loadSum = new IntVar(store, "load-sum", 0, maxCapacitySqr * numHosts * 1000)
-		val loadSumFloat = new FloatVar(store, "load-sum", 0, maxCapacitySqr * numHosts * 1000)
-		store.impose(new XeqP(loadSum, loadSumFloat))
-		store.impose(new SumInt(store, hostLoadCost1000, "==", loadSum))
-
-		// Load on each link
-		val linkLoad = new Array[IntVar](numLinks)
-		val maxBandwidth = links.map(_.load.toInt).sum
-		(0 until numLinks) foreach { linkId =>
-			linkLoad(linkId) = new IntVar(store, "link" + linkId, 0, maxBandwidth)
-		}
+		// Load on each link via network
+		val networkLinkLoad = new Array[FloatVar](numLinks)
 		links.zipWithIndex foreach { t =>
 			val (link, linkId) = t
+			networkLinkLoad(linkId) = new FloatVar(store, s"networkLink${linkId}Load", 0, link.load)
+
 			store.impose(
 				new IfThenElse(
 					new XeqY(
 						operatorHost(link.sender),
 						operatorHost(link.receiver)),
-					new XeqC(linkLoad(linkId), 0),
-					new XeqC(linkLoad(linkId), link.load.toInt)
+					new PeqC(networkLinkLoad(linkId), 0),
+					new PeqC(networkLinkLoad(linkId), link.load)
 				)
 			)
 		}
 
-		val cost =
-			if (TOTAL_COST_PRODUCT) {
-				//Define network cost
-				val networkCost = new IntVar(store, "network-sum", 0, maxBandwidth)
-				store.impose(new SumInt(store, linkLoad, "==", networkCost))
+		// Sum of all link loads
+		val linkLoadSum: Double = links.map(_.load).sum
 
-				// cost = load * network
-				val loadSum2 = new IntVar(store, "load-sum-small", 0, maxCapacitySqr * numHosts)
-				val thousand = new IntVar(store, "1000", 1000, 1000)
-				store.impose(new XeqC(thousand, 1000))
-				store.impose(new XdivYeqZ(loadSum, thousand, loadSum2)) // Divide by thousand to avoid overflow
-				val cost = new IntVar(store, "cost", 0, maxBandwidth * maxCapacitySqr * numHosts)
-				store.impose(new XmulYeqZ(loadSum2, networkCost, cost))
+		// Sum of all loads via network
+		val networkLoad = new FloatVar(store, "networkLoad", 0, linkLoadSum)
+		store.impose(new SumFloat(networkLinkLoad, "==", networkLoad))
+
+		// Network cost as sum of network link load (Normalized to [0, 1])
+		val networkCost = new FloatVar(store, "networkCost", 0, 1)
+		store.impose(new PdivCeqR(networkLoad, linkLoadSum, networkCost))
+
+
+		val cost: FloatVar =
+			if (TOTAL_COST_PRODUCT) {
+				// cost = load cost * network cost, [0, 1]
+				val cost = new FloatVar(store, "cost", 0, 1)
+				store.impose(new PmulQeqR(loadCost, networkCost, cost))
 
 				cost
 			}
 			else {
-				//Define network cost
-				val networkSum = new IntVar(store, "network-sum", 0, maxBandwidth)
-				store.impose(new SumInt(store, linkLoad, "==", networkSum))
-				val networkCost = new IntVar(store, "network-cost", 0, maxBandwidth * 1000)
-				store.impose(new XmulCeqZ(networkSum, 1000, networkCost))
-
-				// Load Cost
-				val loadCost = new IntVar(store, "load-cost", 0, 1000)
-				val loadCostFloat = new FloatVar(store, "load-cost", 0, 1000)
-				store.impose(new XeqP(loadCost, loadCostFloat))
-				store.impose(new PmulCeqR(loadSumFloat, 1000D / (maxCapacitySqr * 1000 * numHosts), loadCostFloat))
-
+				// Weight network cost
+				val networkCostWeighted = new FloatVar(store, "networkCostWeighted", 0, NETWORK_COST_WEIGHT)
+				store.impose(new PmulCeqR(networkCost, NETWORK_COST_WEIGHT, networkCostWeighted))
 
 				// cost = load * network
-				val cost = new IntVar(store, "cost", 0, maxBandwidth * 1000)
-				store.impose(new XplusYeqZ(loadCost, networkCost, cost))
+				val cost = new FloatVar(store, "cost", 0, NETWORK_COST_WEIGHT + 1)
+				store.impose(new PplusQeqR(loadCost, networkCostWeighted, cost))
 
 				cost
 			}
 
-		// Search for a solution (Minimize cost) and print results
 		val search: Search[IntVar] = new DepthFirstSearch[IntVar]()
+		search.getSolutionListener.recordSolutions(true)
+		search.setSolutionListener(new PrintOutListener())
+		search.setTimeOut(TIMEOUT)
 		val select: SelectChoicePoint[IntVar] =
 			new InputOrderSelect[IntVar](store, operatorHost,
-				new IndomainMin[IntVar]())
+				new IndomainMax[IntVar]())
+
 		val result: Boolean = search.labeling(store, select, cost)
 
 
