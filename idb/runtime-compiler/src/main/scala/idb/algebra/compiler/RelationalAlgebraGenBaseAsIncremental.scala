@@ -59,7 +59,7 @@ trait RelationalAlgebraGenBaseAsIncremental extends PlacementStrategy {
 
             case QueryTable (tbl, _, _, _) => tbl
 
-			case r@Def (Root (q, host)) =>
+			case r@Def (Root (q, _, _)) =>
                val qt = q //transform(q)
                val rel = compile (qt)
 	           rel

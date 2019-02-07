@@ -141,7 +141,7 @@ trait CSPPlacementTransformer
 			//Base
 			case QueryTable(_, _, _, _) => query
 			case QueryRelation(_, _, _, _) => query
-			case Def (Root(r, h)) => distributeUnary(r, (q : Rep[Query[Domain]]) => root(q, h))
+			case Def (Root(r, h, placementId)) => distributeUnary(r, (q : Rep[Query[Domain]]) => root(q, h, placementId))
 			case Def (Materialize(r)) => distributeUnary(r, (q : Rep[Query[Domain]]) => materialize(q))
 
 			//Basic Operators
@@ -185,7 +185,7 @@ trait CSPPlacementTransformer
 				(1000, scala.List((query, 0, Some(h), scala.Seq.empty, scala.Seq.empty)))
 			case QueryRelation(_, _, _, h) =>
 				(1000, scala.List((query, 0, Some(h), scala.Seq.empty, scala.Seq.empty)))
-			case Def(Root(r, h)) =>
+			case Def(Root(r, h, _)) =>
 				val t = operatorListFrom(r)
 				(t._1, (query, 0, Some(h), scala.Seq(r), scala.Seq(t._1)) :: t._2)
 			case Def (Materialize(r)) =>

@@ -108,7 +108,8 @@ trait RelationalAlgebraIRBase
 
 	case class Root[Domain : Manifest] (
 		relation : Rep[Query[Domain]],
-		host : Host
+		host : Host,
+		placementId : String // Identifier for the placement of a query
 	) extends Def[Query[Domain]] with QueryBaseOps {
 		def isSet = relation.isSet
 	}
@@ -154,9 +155,10 @@ trait RelationalAlgebraIRBase
 
 	override def root[Domain : Manifest] (
 		relation : Rep[Query[Domain]],
-		host : Host
+		host : Host,
+		placementId: String
 	)(implicit env : QueryEnvironment): Rep[Query[Domain]] =
-		Root(relation, host)
+		Root(relation, host, placementId)
 
 
 }

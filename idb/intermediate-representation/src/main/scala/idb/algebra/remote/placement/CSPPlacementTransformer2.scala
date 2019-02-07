@@ -108,7 +108,7 @@ trait CSPPlacementTransformer2
 				new Operator(query, 0, 1f, Some(hostId(h)), Seq.empty)
 			case QueryRelation(_, _, _, h) =>
 				new Operator(query, 0, 1f, Some(hostId(h)), Seq.empty)
-			case Def(Root(r, h)) =>
+			case Def(Root(r, h, _)) =>
 				new Operator(query, 0, 1f, Some(hostId(h)), Seq(operatorTreeFrom(r, hostId)))
 			case Def(Materialize(r)) =>
 				new Operator(query, 2, 1f, None, Seq(operatorTreeFrom(r, hostId)))
@@ -338,7 +338,7 @@ trait CSPPlacementTransformer2
 			//Base
 			case QueryTable(_, _, _, _) => query
 			case QueryRelation(_, _, _, _) => query
-			case Def(Root(r, h)) => distributeUnary(r, (q: Rep[Query[Domain]]) => root(q, h))
+			case Def(Root(r, h, placementId)) => distributeUnary(r, (q: Rep[Query[Domain]]) => root(q, h, placementId))
 			case Def(Materialize(r)) => distributeUnary(r, (q: Rep[Query[Domain]]) => materialize(q))
 
 			//Basic Operators

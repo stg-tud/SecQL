@@ -18,7 +18,7 @@ protected[remote] trait StandardQueryTaint extends QueryTaint {
 		//Base
 		case QueryRelation(_, _, taint, _) => taint
 		case QueryTable(_, _, taint, _) => taint
-		case Def (Root(q, host)) => taintOf(q)
+		case Def (Root(q, _, _)) => taintOf(q)
 		case Def (Materialize(q)) => taintOf(q)
 
 		//Basic operators
