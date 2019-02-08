@@ -46,7 +46,7 @@ import idb.query.QueryEnvironment
  *
  * @author Ralf Mitschke
  */
-trait RelationalAlgebraGenBaseAsIncremental extends PlacementStrategy {
+trait RelationalAlgebraGenBaseAsIncremental {
 
 	val IR: RelationalAlgebraIREssentialsPackage
 		with RelationalAlgebraSAEBinding

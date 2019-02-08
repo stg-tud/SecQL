@@ -6,7 +6,11 @@ import idb.algebra.exceptions.NoServerAvailableException
 import idb.algebra.ir.{RelationalAlgebraIRAggregationOperators, RelationalAlgebraIRBasicOperators, RelationalAlgebraIRRemoteOperators, RelationalAlgebraIRSetTheoryOperators}
 import idb.algebra.remote.taint.QueryTaint
 import idb.lms.extensions.RemoteUtils
+import idb.metrics.PlacementStatistics
+import idb.metrics.model._
 import idb.query.{Host, QueryEnvironment}
+
+import scala.collection.mutable
 
 trait CSPPlacementTransformer5
 	extends QueryTransformerAdapter with QueryTaint {
@@ -24,6 +28,8 @@ trait CSPPlacementTransformer5
 	// CSP solving timeout in seconds
 	val TIMEOUT = 30
 
+	val placementId: String
+
 	val IR: RelationalAlgebraBase
 		with RelationalAlgebraIRBasicOperators
 		with RelationalAlgebraIRRemoteOperators
@@ -35,6 +41,80 @@ trait CSPPlacementTransformer5
 	import IR._
 
 	var nextOperatorId = 0
+
+	object Operator {
+
+		/**
+		  * Transforms query relation and host id map into Operator instances recursively. Returns the operator tree
+		  * root, from which descendant operators are referenced recursively.
+		  *
+		  * @param query
+		  * @param hostId
+		  * @return
+		  */
+		def apply(query: IR.Rep[IR.Query[_]], hostId: Map[Host, Int]): Operator =
+			query match {
+				//Base
+				case QueryTable(_, _, _, h) =>
+					Operator(query, Some(hostId(h)), Seq.empty)
+				case QueryRelation(_, _, _, h) =>
+					Operator(query, Some(hostId(h)), Seq.empty)
+				case Def(Root(r, h)) =>
+					Operator(query, Some(hostId(h)), Seq(Operator(r, hostId)))
+				case Def(Materialize(r)) =>
+					Operator(query, None, Seq(Operator(r, hostId)))
+
+				//Basic Operators
+				case Def(Selection(r, _)) =>
+					Operator(query, None, Seq(Operator(r, hostId)))
+				case Def(Projection(r, _)) =>
+					Operator(query, None, Seq(Operator(r, hostId)))
+				case Def(CrossProduct(r1, r2)) =>
+					val c1 = Operator(r1, hostId)
+					val c2 = Operator(r2, hostId)
+					Operator(query, None, Seq(c1, c2))
+				case Def(EquiJoin(r1, r2, _)) =>
+					val c1 = Operator(r1, hostId)
+					val c2 = Operator(r2, hostId)
+					Operator(query, None, Seq(c1, c2))
+				case Def(DuplicateElimination(r)) =>
+					Operator(query, None, Seq(Operator(r, hostId)))
+				case Def(Unnest(r, _)) =>
+					Operator(query, None, Seq(Operator(r, hostId)))
+
+				//Set theory operators
+				case Def(UnionAdd(r1, r2)) =>
+					val c1 = Operator(r1, hostId)
+					val c2 = Operator(r2, hostId)
+					Operator(query, None, Seq(c1, c2))
+				case Def(UnionMax(r1, r2)) =>
+					val c1 = Operator(r1, hostId)
+					val c2 = Operator(r2, hostId)
+					Operator(query, None, Seq(c1, c2))
+				case Def(Intersection(r1, r2)) =>
+					val c1 = Operator(r1, hostId)
+					val c2 = Operator(r2, hostId)
+					Operator(query, None, Seq(c1, c2))
+				case Def(Difference(r1, r2)) =>
+					val c1 = Operator(r1, hostId)
+					val c2 = Operator(r2, hostId)
+					Operator(query, None, Seq(c1, c2))
+
+				//Aggregation operators
+				case Def(AggregationSelfMaintained(r, _, _, _, _, _, _, _)) =>
+					Operator(query, None, Seq(Operator(r, hostId)))
+				case Def(AggregationNotSelfMaintained(r, _, _, _, _, _, _, _)) =>
+					Operator(query, None, Seq(Operator(r, hostId)))
+
+				//Remote
+				case Def(Reclassification(r, _)) =>
+					Operator(query, None, Seq(Operator(r, hostId)))
+				case Def(Declassification(r, _)) =>
+					Operator(query, None, Seq(Operator(r, hostId)))
+				case Def(ActorDef(_, h, _)) =>
+					Operator(query, Some(hostId(h)), Seq.empty)
+			}
+	}
 
 	case class Operator(
 						   query: IR.Rep[IR.Query[_]],
@@ -131,6 +211,38 @@ trait CSPPlacementTransformer5
 				case Def(ActorDef(_, _, _)) => 0d
 			}
 
+		lazy val name: String =
+			query match {
+				//Base
+				case QueryTable(_, _, _, _) => "query-table"
+				case QueryRelation(_, _, _, _) => "query-relation"
+				case Def(Root(_, _)) => "root"
+				case Def(Materialize(_)) => "materialize"
+
+				//Basic Operators
+				case Def(Selection(_, _)) => "selection"
+				case Def(Projection(_, _)) => "projection"
+				case Def(CrossProduct(_, _)) => "cross-product"
+				case Def(EquiJoin(_, _, _)) => "equi-join"
+				case Def(DuplicateElimination(_)) => "duplicate-elimination"
+				case Def(Unnest(_, _)) => "unnest"
+
+				//Set theory operators
+				case Def(UnionAdd(_, _)) => "union-add"
+				case Def(UnionMax(_, _)) => "union-max"
+				case Def(Intersection(_, _)) => "intersection"
+				case Def(Difference(_, _)) => "difference"
+
+				//Aggregation operators
+				case Def(AggregationSelfMaintained(_, _, _, _, _, _, _, _)) => "aggregation (sm)"
+				case Def(AggregationNotSelfMaintained(_, _, _, _, _, _, _, _)) => "aggreation (not sm)"
+
+				//Remote
+				case Def(Reclassification(_, _)) => "re-classification"
+				case Def(Declassification(_, _)) => "de-classification"
+				case Def(ActorDef(_, _, _)) => "actor"
+			}
+
 		lazy val outgoingLink: Double =
 			if (children.isEmpty) selectivity * 1000
 			else children.map(_.outgoingLink).sum * selectivity
@@ -155,7 +267,7 @@ trait CSPPlacementTransformer5
 	  */
 	var selectivityLib: Map[Int, Float] = _
 
-	override def transform[Domain: Manifest](relation: IR.Rep[IR.Query[Domain]])(implicit env: QueryEnvironment): IR.Rep[IR.Query[Domain]] = {
+	override def transform[Domain: Manifest](relation: Rep[Query[Domain]])(implicit env: QueryEnvironment): Rep[Query[Domain]] = {
 
 		println("REL" + relation.hashCode())
 
@@ -177,7 +289,7 @@ trait CSPPlacementTransformer5
 		val hostId = hostList.zipWithIndex.toMap
 		val hostCapacity = hostList.map(env.priorityOf)
 		//Prepare data for CSP Solver function
-		val operatorTree: Operator = operatorTreeFrom(relation, hostId)
+		val operatorTree: Operator = Operator(relation, hostId)
 		val operators: Seq[Operator] = operatorTree.toList.sortBy(_.id)
 		// Make sure ids of operators are correct
 		operators.zipWithIndex foreach { t =>
@@ -202,7 +314,7 @@ trait CSPPlacementTransformer5
 
 
 		//Compute placement using the CSP solver
-		val placement: Seq[Int] = computePlacement(operators, operatorHosts, links, hostCapacity)
+		val placement: Seq[Int] = computePlacement(operators, operatorHosts, links, hostCapacity, hostList)
 
 		if (placement == null)
 			throw new NoServerAvailableException()
@@ -222,76 +334,12 @@ trait CSPPlacementTransformer5
 		super.transform(addRemotes(relation))
 	}
 
-	private def operatorTreeFrom(query: IR.Rep[IR.Query[_]], hostId: Map[Host, Int]): Operator = {
-
-		query match {
-			//Base
-			case QueryTable(_, _, _, h) =>
-				Operator(query, Some(hostId(h)), Seq.empty)
-			case QueryRelation(_, _, _, h) =>
-				Operator(query, Some(hostId(h)), Seq.empty)
-			case Def(Root(r, h)) =>
-				Operator(query, Some(hostId(h)), Seq(operatorTreeFrom(r, hostId)))
-			case Def(Materialize(r)) =>
-				Operator(query, None, Seq(operatorTreeFrom(r, hostId)))
-
-			//Basic Operators
-			case Def(Selection(r, _)) =>
-				Operator(query, None, Seq(operatorTreeFrom(r, hostId)))
-			case Def(Projection(r, _)) =>
-				Operator(query, None, Seq(operatorTreeFrom(r, hostId)))
-			case Def(CrossProduct(r1, r2)) =>
-				val c1 = operatorTreeFrom(r1, hostId)
-				val c2 = operatorTreeFrom(r2, hostId)
-				Operator(query, None, Seq(c1, c2))
-			case Def(EquiJoin(r1, r2, _)) =>
-				val c1 = operatorTreeFrom(r1, hostId)
-				val c2 = operatorTreeFrom(r2, hostId)
-				Operator(query, None, Seq(c1, c2))
-			case Def(DuplicateElimination(r)) =>
-				Operator(query, None, Seq(operatorTreeFrom(r, hostId)))
-			case Def(Unnest(r, _)) =>
-				Operator(query, None, Seq(operatorTreeFrom(r, hostId)))
-
-			//Set theory operators
-			case Def(UnionAdd(r1, r2)) =>
-				val c1 = operatorTreeFrom(r1, hostId)
-				val c2 = operatorTreeFrom(r2, hostId)
-				Operator(query, None, Seq(c1, c2))
-			case Def(UnionMax(r1, r2)) =>
-				val c1 = operatorTreeFrom(r1, hostId)
-				val c2 = operatorTreeFrom(r2, hostId)
-				Operator(query, None, Seq(c1, c2))
-			case Def(Intersection(r1, r2)) =>
-				val c1 = operatorTreeFrom(r1, hostId)
-				val c2 = operatorTreeFrom(r2, hostId)
-				Operator(query, None, Seq(c1, c2))
-			case Def(Difference(r1, r2)) =>
-				val c1 = operatorTreeFrom(r1, hostId)
-				val c2 = operatorTreeFrom(r2, hostId)
-				Operator(query, None, Seq(c1, c2))
-
-			//Aggregation operators
-			case Def(AggregationSelfMaintained(r, _, _, _, _, _, _, _)) =>
-				Operator(query, None, Seq(operatorTreeFrom(r, hostId)))
-			case Def(AggregationNotSelfMaintained(r, _, _, _, _, _, _, _)) =>
-				Operator(query, None, Seq(operatorTreeFrom(r, hostId)))
-
-			//Remote
-			case Def(Reclassification(r, _)) =>
-				Operator(query, None, Seq(operatorTreeFrom(r, hostId)))
-			case Def(Declassification(r, _)) =>
-				Operator(query, None, Seq(operatorTreeFrom(r, hostId)))
-			case Def(ActorDef(_, h, _)) =>
-				Operator(query, Some(hostId(h)), Seq.empty)
-		}
-	}
-
 	private def computePlacement(
 									operators: Seq[Operator],
 									operatorHostCandidates: Seq[Seq[Int]],
 									links: Seq[Link],
-									hostCapacity: Seq[Int]
+									hostCapacity: Seq[Int],
+									hosts: Seq[Host]
 								): Seq[Int] = {
 		import org.jacop.constraints._
 		import org.jacop.core._
@@ -449,8 +497,81 @@ trait CSPPlacementTransformer5
 			}
 
 		val search: Search[IntVar] = new DepthFirstSearch[IntVar]()
-		search.getSolutionListener.recordSolutions(true)
-		search.setSolutionListener(new PrintOutListener())
+		val placementStatistics = new SimpleSolutionListener[IntVar] with TimeOutListener {
+			searchAll(true)
+			recordSolutions(true)
+
+			private var lowestCost: Double = Double.MaxValue
+			private val bestSolutions = mutable.ArrayBuffer[PlacementSolution]()
+			private var timedOut = false
+
+			override def executeAfterSolution(search: Search[IntVar], select: SelectChoicePoint[IntVar]): Boolean = {
+				val result = super.executeAfterSolution(search, select)
+
+				val solutionId = solutionsNo() - 1
+				val solutionVals = solutions(solutionId)
+				val solutionCost = cost.value()
+				if (solutionCost > lowestCost + 0.000000000000001) {
+					throw new RuntimeException(s"Found new solution $solutionId (cost: $solutionCost), which is worse than the previous")
+				}
+				else if (solutionCost < lowestCost) {
+					Predef.println(s"Found better solution $solutionId (cost: $solutionCost), resetting solution cache")
+					bestSolutions.clear()
+					lowestCost = solutionCost
+				}
+				else {
+					Predef.println(s"Found additional solution $solutionId (cost: $solutionCost)")
+				}
+
+				bestSolutions.append(PlacementSolution(
+					vars.map(_.index).zip(solutionVals.map(_.toString.toInt)).toMap
+				))
+
+				result
+			}
+
+			/**
+			  *
+			  * @param duration Duration in milliseconds
+			  * @return
+			  */
+			def generate(duration: Long): PlacementStatistics =
+				PlacementStatistics(
+					placementId,
+					lowestCost,
+					bestSolutions,
+					bestSolutions.length - 1,
+					operators.zip(operatorHostCandidates) map { t =>
+						val (operator, candidateHosts) = t
+						PlacementOperator(
+							operator.id,
+							operator.name,
+							candidateHosts,
+							operator.selectivity,
+							operator.load,
+							operator.outgoingLink)
+					},
+					links map { link =>
+						PlacementLink(link.sender, link.receiver, link.load)
+					},
+					hosts.zipWithIndex map { t =>
+						val (host, id) = t
+						PlacementHost(id, host.name)
+					},
+					duration,
+					timedOut
+				)
+
+			override def executedAtTimeOut(solutionsNo: Int): Unit =
+				timedOut = true
+
+			override def setChildrenListeners(timeOutListeners: Array[TimeOutListener]): Unit = Unit
+
+			override def setChildrenListeners(timeOutListener: TimeOutListener): Unit = Unit
+		}
+
+		search.setSolutionListener(placementStatistics)
+		search.setTimeOutListener(placementStatistics)
 		search.setTimeOut(TIMEOUT)
 		val select: SelectChoicePoint[IntVar] =
 			new InputOrderSelect[IntVar](store, operatorHost,
@@ -460,9 +581,11 @@ trait CSPPlacementTransformer5
 
 
 		val endTime = System.nanoTime()
+		placementStatistics.generate((endTime - startTime) / 1000000)
 
 		Predef.println("Time: " + (endTime - startTime))
 		Predef.println("Store >>>\n" + store + "\n<<< Store")
+		Predef.println(PlacementStatistics(placementId))
 
 		if (result) {
 			Predef.println("Solution:")
@@ -473,10 +596,18 @@ trait CSPPlacementTransformer5
 			Predef.println("*** No")
 			null
 		}
-
 	}
 
-
+	/**
+	  * Adds remote operators to operator tree at operator links between operators, which are not placed on the same
+	  * host
+	  *
+	  * @param query
+	  * @param env
+	  * @param placement
+	  * @tparam Domain
+	  * @return
+	  */
 	private def addRemotes[Domain: Manifest](
 												query: IR.Rep[IR.Query[Domain]]
 											)(

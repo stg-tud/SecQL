@@ -15,6 +15,7 @@ object sae extends Build {
 	lazy val intermediateRepresentation = Project(
 		id = "idb-intermediate-representation",
 		base = file("idb/intermediate-representation"))
+		.dependsOn(runtime % "compile;test")
 
 	lazy val schemaExamples = Project(
 		id = "idb-schema-examples",
