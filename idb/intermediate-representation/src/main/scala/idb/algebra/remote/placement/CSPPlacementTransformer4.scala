@@ -47,7 +47,7 @@ trait CSPPlacementTransformer4
 					//Base
 					case QueryTable(_, _, _, _) => 1f
 					case QueryRelation(_, _, _, _) => 1f
-					case Def(Root(_, _, _)) => 1f
+					case Def(Root(_, _)) => 1f
 					case Def(Materialize(_)) => 1f
 
 					//Basic Operators
@@ -85,7 +85,7 @@ trait CSPPlacementTransformer4
 				//Base
 				case QueryTable(_, _, _, _) => 0f
 				case QueryRelation(_, _, _, _) => 0f
-				case Def(Root(_, _, _)) => 0f
+				case Def(Root(_, _)) => 0f
 				case Def(Materialize(_)) => 2f
 
 				//Basic Operators
@@ -211,7 +211,7 @@ trait CSPPlacementTransformer4
 				Operator(query, Some(hostId(h)), Seq.empty)
 			case QueryRelation(_, _, _, h) =>
 				Operator(query, Some(hostId(h)), Seq.empty)
-			case Def(Root(r, h, _)) =>
+			case Def(Root(r, h)) =>
 				Operator(query, Some(hostId(h)), Seq(operatorTreeFrom(r, hostId)))
 			case Def(Materialize(r)) =>
 				Operator(query, None, Seq(operatorTreeFrom(r, hostId)))
@@ -483,7 +483,7 @@ trait CSPPlacementTransformer4
 			//Base
 			case QueryTable(_, _, _, _) => query
 			case QueryRelation(_, _, _, _) => query
-			case Def(Root(r, h, placementId)) => distributeUnary(r, (q: Rep[Query[Domain]]) => root(q, h, placementId))
+			case Def(Root(r, h)) => distributeUnary(r, (q: Rep[Query[Domain]]) => root(q, h))
 			case Def(Materialize(r)) => distributeUnary(r, (q: Rep[Query[Domain]]) => materialize(q))
 
 			//Basic Operators

@@ -30,7 +30,7 @@ protected[algebra] trait QueryTransformerAdapter
 			//Base
 			case QueryRelation(_, _, _, _) => relation
 			case QueryTable(_, _, _, _) => relation
-			case Def (Root(q, host, placementId)) => root(transform(q), host, placementId)
+			case Def (Root(q, host)) => root(transform(q), host)
 			case Def (Materialize(q)) => materialize(transform(q))
 
 			//Basic operators

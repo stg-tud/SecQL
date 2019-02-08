@@ -25,7 +25,7 @@ protected[remote] trait StandardPlacementTransformer
 
 		relation match {
 
-			case Def(Root(q, host, placementId)) =>
+			case Def(Root(q, host)) =>
 				val transQ = transform(q)
 
 				//Adds a remote node as child of the root if the relation is on another server
@@ -34,11 +34,11 @@ protected[remote] trait StandardPlacementTransformer
 					val rootPermissions = env.permissionsOf(host)
 
 					if (taintQ.ids subsetOf rootPermissions)
-						super.transform(root(remote(transQ, host), host, placementId))
+						super.transform(root(remote(transQ, host), host))
 					else
 						throw new InsufficientRootPermissionsException(host.name, rootPermissions, taintQ)
 				} else {
-					super.transform(root(transQ, host, placementId))
+					super.transform(root(transQ, host))
 				}
 
 			case Def(Reclassification(q, newTaint)) =>

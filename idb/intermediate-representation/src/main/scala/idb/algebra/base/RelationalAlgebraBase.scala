@@ -93,8 +93,7 @@ trait RelationalAlgebraBase
 	 */
 	def root[Domain : Manifest] (
 		relation : Rep[Query[Domain]],
-		host : Host,
-		placementId : String
+		host : Host
 	)(implicit env : QueryEnvironment): Rep[Query[Domain]]
 
 }
