@@ -35,7 +35,7 @@ trait Benchmark extends MultiNodeSpec with BenchmarkConfig {
 		val configRecorder = new ConfigRecorder(executionId, nodeName, new MongoTransport[ConfigRecord](mongoConnectionString, ConfigRecord))
 		val maxMemoryEvaluator = new MaxMemoryEvaluator
 
-		private var currentSection: String = null
+		private var currentSection: String = _
 
 		private var isMeasurement: Boolean = false
 
@@ -60,18 +60,21 @@ trait Benchmark extends MultiNodeSpec with BenchmarkConfig {
 		def exec(): Unit = {
 			deploy()
 			compile()
-			if (doWarmup) {
-				warmupInit()
-				warmup()
-				warmupAfterBurn()
-				warmupFinished()
-				reset()
+			if (!skipExecution) {
+				if (doWarmup) {
+					warmupInit()
+					warmup()
+					warmupAfterBurn()
+					warmupFinished()
+					reset()
+				}
+				measurementInit()
+				measurementRecordingInit()
+				measurement()
+				measurementAfterBurn()
+				measurementFinished()
 			}
-			measurementInit()
-			measurementRecordingInit()
-			measurement()
-			measurementAfterBurn()
-			measurementFinished()
+			completion()
 		}
 
 		protected def deploy(): Unit = {
@@ -141,15 +144,21 @@ trait Benchmark extends MultiNodeSpec with BenchmarkConfig {
 			maxMemoryEvaluator.stop()
 			eventRecorder.log("memory.max." + maxMemoryEvaluator.maxMemory)
 
+			log.info("Transferring measurement recordings to central database")
+			performanceRecorder.terminateAndTransfer()
+			if (throughputRecorder != null)
+				throughputRecorder.terminateAndTransfer()
+		}
+
+		protected def completion(): Unit = {
+			enterSection("completion")
+
 			log.info("Recording configuration")
 			configRecorder.log(Benchmark.this)
 
-			log.info("Transferring recordings to central database")
+			log.info("Transferring execution recordings to central database")
 			configRecorder.terminateAndTransfer()
-			performanceRecorder.terminateAndTransfer()
 			eventRecorder.terminateAndTransfer()
-			if (throughputRecorder != null)
-				throughputRecorder.terminateAndTransfer()
 		}
 	}
 

@@ -14,6 +14,9 @@ trait BenchmarkConfig {
 	val benchmarkQuery: String
 
 	val doWarmup: Boolean
+	// if true, benchmarks exit successfully after placement decision and configuration recording
+	// (warmup and measurement is skipped)
+	val skipExecution: Boolean = false
 
 	val waitForBeingColdIntervalMs = 5000L // Interval in which it is checked, whether the receiving relation is cold
 	val waitForBeingColdTimeoutMs = 30000L // Timeout after which test fails, if relation does not get cold and eventCount doesn't change
