@@ -2,8 +2,10 @@ package sae.benchmark
 
 import akka.remote.testkit.MultiNodeSpec
 import idb.Relation
-import idb.metrics.{CountEvaluator, MaxMemoryEvaluator, ProcessPerformance, ThroughputEvaluator}
+import idb.metrics._
 import idb.query.QueryEnvironment
+import net.liftweb.json
+import net.liftweb.json.DefaultFormats
 import sae.benchmark.db.{BenchmarkDB, BenchmarkDBConfig, PublisherBenchmarkDB, SimpleBenchmarkDB}
 import sae.benchmark.recording.mongo.MongoTransport
 import sae.benchmark.recording.recorders._
@@ -30,6 +32,7 @@ trait Benchmark extends MultiNodeSpec with BenchmarkConfig {
 		val performanceRecorder = new PerformanceRecorder(executionId, nodeName,
 			if (mongoTransferRecords) new MongoTransport[PerformanceRecord](mongoConnectionString, PerformanceRecord) else null)
 		var throughputRecorder: ThroughputRecorder = _
+		val configRecorder = new ConfigRecorder(executionId, nodeName, new MongoTransport[ConfigRecord](mongoConnectionString, ConfigRecord))
 		val maxMemoryEvaluator = new MaxMemoryEvaluator
 
 		private var currentSection: String = null
@@ -139,7 +142,6 @@ trait Benchmark extends MultiNodeSpec with BenchmarkConfig {
 			eventRecorder.log("memory.max." + maxMemoryEvaluator.maxMemory)
 
 			log.info("Recording configuration")
-			val configRecorder = new ConfigRecorder(executionId, nodeName, new MongoTransport[ConfigRecord](mongoConnectionString, ConfigRecord))
 			configRecorder.log(Benchmark.this)
 
 			log.info("Transferring recordings to central database")
@@ -226,7 +228,14 @@ trait Benchmark extends MultiNodeSpec with BenchmarkConfig {
 		}
 	}
 
-	abstract class ReceiveNode[Domain](nodeName: String) extends Node(nodeName) {
+	/**
+	  *
+	  * @param nodeName    Name of the node
+	  * @param placementId Identifier of the placement decision. Should be different for every placement in the
+	  *                    benchmark. Defaults to "[BenchmarkGroup]-[BenchmarkQuery]"
+	  * @tparam Domain
+	  */
+	abstract class ReceiveNode[Domain](nodeName: String, val placementId: String = s"$benchmarkGroup-$benchmarkQuery") extends Node(nodeName) {
 
 		protected def relation(): Relation[Domain]
 
@@ -269,8 +278,10 @@ trait Benchmark extends MultiNodeSpec with BenchmarkConfig {
 			super.compile()
 
 			r = relation()
-			log.info("Completed compiling, printing query tree")
+			log.info("Completed compiling, printing query tree and recording placement statistics")
 			r.print()
+			configRecorder.log("JSON", "placement",
+				json.Serialization.write(PlacementStatistics(placementId).get)(DefaultFormats))
 		}
 
 		override def warmupInit(): Unit = {

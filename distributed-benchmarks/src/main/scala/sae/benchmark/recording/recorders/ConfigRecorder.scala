@@ -40,4 +40,8 @@ class ConfigRecorder(
 			})
 	}
 
+	def log(typeName: String, propertyName: String, value: String): Unit = {
+		log(new ConfigRecord(nodeName, typeName, propertyName, value))
+	}
+
 }

@@ -3,13 +3,13 @@ package idb.metrics.model
 /**
   * Represents a operator placement
   *
-  * @param placements Operator id => host id
+  * @param placements
   */
-case class PlacementSolution(placements: Map[Int, Int]) {
+case class PlacementSolution(placements: Seq[PlacementDecision]) {
 
 	def toString(linePrefix: String): String = {
 		linePrefix + s"PlacementSolution([\n" +
-			placements.map(t => linePrefix + s"	operator ${t._1} => host ${t._2}").mkString(",\n") + "\n" +
+			placements.map(_.toString(linePrefix + "	")).mkString(",\n") + "\n" +
 			linePrefix + s"])"
 	}
 

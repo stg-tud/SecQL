@@ -276,12 +276,12 @@ trait CSPPlacementTransformer5
 
 		// Init selectivity lib
 		selectivityLib =
-			if (SelectivityLib.libs.contains(relation.hashCode())) {
-				println(s"Using predefined selectivity lib for query ${relation.hashCode()}")
-				SelectivityLib.libs(relation.hashCode())
+			if (SelectivityLib2.libs.contains(placementId)) {
+				println(s"Using predefined selectivity lib for placement $placementId")
+				SelectivityLib2.libs(placementId)
 			}
 			else {
-				println(s"Using default selectivity values for query ${relation.hashCode()}")
+				println(s"Using default selectivity values for placement $placementId")
 				null
 			}
 
@@ -524,7 +524,10 @@ trait CSPPlacementTransformer5
 				}
 
 				bestSolutions.append(PlacementSolution(
-					vars.map(_.index).zip(solutionVals.map(_.toString.toInt)).toMap
+					vars.map(_.index).zip(solutionVals.map(_.toString.toInt)).map { t =>
+						val (operator, host) = t
+						PlacementDecision(operator, host)
+					}
 				))
 
 				result
