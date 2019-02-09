@@ -511,10 +511,8 @@ trait CSPPlacementTransformer5
 				val solutionId = solutionsNo() - 1
 				val solutionVals = solutions(solutionId)
 				val solutionCost = cost.value()
-				if (solutionCost > lowestCost + 0.000000000000001) {
-					throw new RuntimeException(s"Found new solution $solutionId (cost: $solutionCost), which is worse than the previous")
-				}
-				else if (solutionCost < lowestCost) {
+
+				if (solutionCost < lowestCost) {
 					Predef.println(s"Found better solution $solutionId (cost: $solutionCost), resetting solution cache")
 					bestSolutions.clear()
 					lowestCost = solutionCost
