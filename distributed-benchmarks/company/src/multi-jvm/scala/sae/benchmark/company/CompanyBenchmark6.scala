@@ -133,7 +133,7 @@ class CompanyBenchmark6 extends MultiNodeSpec(CompanyMultiNodeConfig)
 
 			//Define the root. The operators get distributed here.
 			val r: idb.Relation[ResultType] =
-				ROOT(clientHost, query6)
+				ROOT(clientHost, query6, placementId)
 
 			r.addObserver(new NoOpObserver[ResultType] {
 				override def added(v: (Int, Int)): Unit = {
