@@ -26,7 +26,7 @@ trait CSPPlacementTransformer5
 	// If false, input data dependent operator load values are chosen, otherwise static SecQL values
 	val SECQL_OPERATOR_LOADS: Boolean = false
 	// CSP solving timeout in seconds
-	val TIMEOUT = 30
+	val TIMEOUT = 300
 
 	val placementId: String
 
