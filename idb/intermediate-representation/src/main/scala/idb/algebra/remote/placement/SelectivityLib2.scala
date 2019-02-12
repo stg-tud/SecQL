@@ -2,7 +2,7 @@ package idb.algebra.remote.placement
 
 object SelectivityLib2 {
 
-	val companyIterations = 100000
+	val companyIterations = 1000000
 
 	/**
 	  * Maps selectivity libs (Operator query hash -> selectivity) to placement id root query relation

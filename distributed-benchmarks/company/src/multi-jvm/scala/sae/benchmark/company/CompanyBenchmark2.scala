@@ -20,6 +20,7 @@ class CompanyBenchmark2 extends MultiNodeSpec(CompanyMultiNodeConfig)
 	with CompanyBenchmark {
 
 	override val benchmarkQuery = "query2"
+	override val baseIterationsCoefficient: Float = 0.5f
 
 	//Setup query environment
 	implicit val env = QueryEnvironment.create(

@@ -20,6 +20,7 @@ class CompanyBenchmark6 extends MultiNodeSpec(CompanyMultiNodeConfig)
 	with CompanyBenchmark {
 
 	override val benchmarkQuery = "query6"
+	override val baseIterationsCoefficient: Float = 0.05f
 
 	import CompanyMultiNodeConfig._
 
