@@ -16,7 +16,7 @@ object ConfigRecord extends Record[ConfigRecord] with MongoRecord[ConfigRecord] 
 	override def fromLine(line: String): ConfigRecord = {
 		val record = line.split(Recorder.SEPARATOR)
 
-		ConfigRecord(record(0), record(1), record(2), record(3))
+		ConfigRecord(record(0), record(1), record(2), record.slice(3, record.length).mkString(Recorder.SEPARATOR))
 	}
 
 	override val codecProvider: CodecProvider = classOf[ConfigRecord]

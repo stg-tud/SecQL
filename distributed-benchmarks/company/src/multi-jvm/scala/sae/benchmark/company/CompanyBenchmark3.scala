@@ -20,6 +20,7 @@ class CompanyBenchmark3 extends MultiNodeSpec(CompanyMultiNodeConfig)
 	with CompanyBenchmark {
 
 	override val benchmarkQuery = "query3"
+	override val baseIterationsCoefficient: Float = 0.2f
 
 	def latencyIdByEmployeeId(employeeId: Int): Int = {
 		employeeId - employeeId / 10 - 1
@@ -138,7 +139,7 @@ class CompanyBenchmark3 extends MultiNodeSpec(CompanyMultiNodeConfig)
 
 			//Define the root. The operators get distributed here.
 			val r: idb.Relation[ResultType] =
-				ROOT(clientHost, workerWithWood)
+				ROOT(clientHost, workerWithWood, placementId)
 
 			// Setup latency recording
 			r.addObserver(new NoOpObserver[ResultType] {

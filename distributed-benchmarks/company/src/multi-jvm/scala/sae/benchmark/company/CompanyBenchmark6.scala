@@ -20,6 +20,7 @@ class CompanyBenchmark6 extends MultiNodeSpec(CompanyMultiNodeConfig)
 	with CompanyBenchmark {
 
 	override val benchmarkQuery = "query6"
+	override val baseIterationsCoefficient: Float = 0.05f
 
 	import CompanyMultiNodeConfig._
 
@@ -133,7 +134,7 @@ class CompanyBenchmark6 extends MultiNodeSpec(CompanyMultiNodeConfig)
 
 			//Define the root. The operators get distributed here.
 			val r: idb.Relation[ResultType] =
-				ROOT(clientHost, query6)
+				ROOT(clientHost, query6, placementId)
 
 			r.addObserver(new NoOpObserver[ResultType] {
 				override def added(v: (Int, Int)): Unit = {

@@ -5,7 +5,7 @@ import sae.benchmark.BenchmarkConfig
 
 sealed trait CompanyConfig extends BenchmarkConfig with CompanyPermissionConfig {
 
-	val baseIterations: Int = 100000
+	val groundIterations: Int = 1000000
 
 	override val debugMode: Boolean = false
 	override val dbBackpressure: Boolean = true

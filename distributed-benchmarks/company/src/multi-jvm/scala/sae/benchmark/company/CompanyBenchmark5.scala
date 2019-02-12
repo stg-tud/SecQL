@@ -22,6 +22,7 @@ class CompanyBenchmark5 extends MultiNodeSpec(CompanyMultiNodeConfig)
 	with CompanyBenchmark {
 
 	override val benchmarkQuery = "query5"
+	override val baseIterationsCoefficient: Float = 0.1f
 
 	//Setup query environment
 	implicit val env: QueryEnvironment = QueryEnvironment.create(
@@ -156,7 +157,7 @@ class CompanyBenchmark5 extends MultiNodeSpec(CompanyMultiNodeConfig)
 
 			//Define the root. The operators get distributed here.
 			val r: idb.Relation[ResultType] =
-				ROOT(clientHost, query5)
+				ROOT(clientHost, query5, placementId)
 
 			// Setup latency recording
 			r.addObserver(new NoOpObserver[ResultType] {

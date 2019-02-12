@@ -63,7 +63,7 @@ class HospitalBenchmark4 extends MultiNodeSpec(HospitalMultiNodeConfig)
 
 			//... and add ROOT. Workaround: Reclass the data to make it pushable to the client node.
 			val r: idb.Relation[ResultType] =
-				ROOT(clientHost, RECLASS(query4, Taint("white")))
+				ROOT(clientHost, RECLASS(query4, Taint("white")), placementId)
 			r
 		}
 	}

@@ -37,10 +37,11 @@ object ROOT {
 	def UNSAFE[Domain: Manifest](host: RemoteHost, relation: Relation[Domain])(implicit env: QueryEnvironment): Relation[Domain] =
 		UNSAFE(host.path, relation)
 
-	def apply[Domain: Manifest](rootHost: RemoteHost, query: Rep[Query[Domain]])(implicit env: QueryEnvironment): Relation[Domain] = {
+	def apply[Domain: Manifest](rootHost: RemoteHost, query: Rep[Query[Domain]], placement: String = "unnamed-placement")(implicit env: QueryEnvironment): Relation[Domain] = {
 
 		object Placement extends PlacementStrategy {
 			val IR = idb.syntax.iql.IR
+			override val placementId: String = placement
 		}
 		val transformedQuery = Placement.transform(root(query, rootHost))
 

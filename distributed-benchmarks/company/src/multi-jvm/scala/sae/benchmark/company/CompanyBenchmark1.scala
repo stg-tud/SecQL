@@ -98,7 +98,7 @@ class CompanyBenchmark1 extends MultiNodeSpec(CompanyMultiNodeConfig)
 
 			//Define the root. The operators get distributed here.
 			val r: idb.Relation[ResultType] =
-				ROOT(clientHost, query1)
+				ROOT(clientHost, query1, placementId)
 
 			// Setup latency recording
 			r.addObserver(new NoOpObserver[ResultType] {

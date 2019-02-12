@@ -7,9 +7,12 @@ import sae.benchmark.company.CompanyMultiNodeConfig._
 import sae.benchmark.db.BenchmarkDBConfig
 
 
-trait CompanyBenchmark extends Benchmark with DefaultPriorityConfig {
+trait CompanyBenchmark extends Benchmark with NoPrivacyConfig {
 
+	val baseIterationsCoefficient: Float = 1f
 	override val benchmarkGroup = "company"
+	// Must be lazy val to ensure overridden baseIterationsCoefficient values have effect
+	lazy val baseIterations: Int = (baseIterationsCoefficient * groundIterations).toInt
 
 	//Setup query environment
 	val publicHost = RemoteHost("public-host", node(rolePublic))
