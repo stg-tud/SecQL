@@ -25,6 +25,8 @@ trait CSPPlacementTransformer5
 	val SECQL_LOAD_COST: Boolean = false
 	// If false, input data dependent operator load values are chosen, otherwise static SecQL values
 	val SECQL_OPERATOR_LOADS: Boolean = false
+	// If true, selectivity lib is not checked for values for query placement (forces default selectivity)
+	val DISABLE_SELECTIVITY_LIB: Boolean = false
 	// CSP solving timeout in seconds
 	val TIMEOUT = 300
 
@@ -276,7 +278,7 @@ trait CSPPlacementTransformer5
 
 		// Init selectivity lib
 		selectivityLib =
-			if (SelectivityLib2.libs.contains(placementId)) {
+			if (!DISABLE_SELECTIVITY_LIB && SelectivityLib2.libs.contains(placementId)) {
 				println(s"Using predefined selectivity lib for placement $placementId")
 				SelectivityLib2.libs(placementId)
 			}
