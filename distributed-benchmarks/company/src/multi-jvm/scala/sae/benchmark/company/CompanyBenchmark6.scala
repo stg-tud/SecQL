@@ -128,7 +128,7 @@ class CompanyBenchmark6 extends MultiNodeSpec(CompanyMultiNodeConfig)
 			) WHERE ((f, p) =>
 				f.city == "Darmstadt" AND p.name.startsWith("Knut") AND p.name.endsWith("0")
 				)
-			// Equi joins:
+			// Cross product:
 			//		- Factories, where id % 10 >= 5 (id = iteration)
 			//		- Products, where id >= baseIterations and id % 10 = 0 (id = iteration)
 
