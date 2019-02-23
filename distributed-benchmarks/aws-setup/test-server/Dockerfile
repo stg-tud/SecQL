@@ -1,8 +1,8 @@
 FROM dsoko2/i3ql-lms:0.3.0-8u181-jdk
 
-# Install SSH, RSYNC, git, git-lfs, vim, nano and dialog
+# Install SSH, RSYNC, git, git-lfs, vim, nano, dialog, screen and less
 RUN curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | bash
-RUN apt-get update && apt-get install -y openssh-server rsync git-core git-lfs vim nano dialog
+RUN apt-get update && apt-get install -y openssh-server rsync git-core git-lfs vim nano dialog screen less
 RUN mkdir /var/run/sshd
 # Disable known host checking: Makes vulnurable towards man-in-the-middle attacks!
 RUN sed -i 's/#   StrictHostKeyChecking ask/   StrictHostKeyChecking no/' /etc/ssh/ssh_config
