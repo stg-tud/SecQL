@@ -27,7 +27,7 @@ class HospitalBenchmark4 extends MultiNodeSpec(HospitalMultiNodeConfig)
 			personHost -> (1, Set("red")),
 			patientHost -> (1, Set("red", "green", "purple")),
 			knowledgeHost -> (1, Set("purple")),
-			clientHost -> (0, Set("white"))
+			clientHost -> (1, Set("white"))
 		)
 	)
 
@@ -51,7 +51,9 @@ class HospitalBenchmark4 extends MultiNodeSpec(HospitalMultiNodeConfig)
 					(person: Rep[PersonType], patientSymptom: Rep[(PatientType, String)], knowledgeData: Rep[KnowledgeType]) =>
 						(person.personId, person.name, knowledgeData.diagnosis)
 					) FROM(
-					personDB, UNNEST(patientDB, (x: Rep[PatientType]) => x.symptoms), knowledgeDB
+						RECLASS(personDB, Taint("green")),
+						UNNEST(patientDB, (x: Rep[PatientType]) => x.symptoms),
+						RECLASS(knowledgeDB, Taint("green"))
 				) WHERE (
 					(person: Rep[PersonType], patientSymptom: Rep[(PatientType, String)], knowledgeData: Rep[KnowledgeType]) =>
 						person.personId == patientSymptom._1.personId AND

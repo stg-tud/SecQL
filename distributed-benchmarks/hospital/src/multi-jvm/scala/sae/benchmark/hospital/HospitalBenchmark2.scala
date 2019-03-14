@@ -26,7 +26,7 @@ class HospitalBenchmark2 extends MultiNodeSpec(HospitalMultiNodeConfig)
 			personHost -> (1, Set("red")),
 			patientHost -> (1, Set("red", "green", "purple")),
 			knowledgeHost -> (1, Set("purple")),
-			clientHost -> (0, Set("red", "green", "purple"))
+			clientHost -> (1, Set("red", "green", "purple"))
 		)
 	)
 
@@ -49,7 +49,10 @@ class HospitalBenchmark2 extends MultiNodeSpec(HospitalMultiNodeConfig)
 				SELECT DISTINCT (
 					(person: Rep[PersonType], patientSymptom: Rep[(PatientType, String)], knowledgeData: Rep[KnowledgeType]) =>
 						(person.personId, person.name, knowledgeData.diagnosis)
-					) FROM(RECLASS(personDB, Taint("green")), UNNEST(patientDB, (x: Rep[PatientType]) => x.symptoms), knowledgeDB
+					) FROM(
+						RECLASS(personDB, Taint("green")),
+						UNNEST(patientDB, (x: Rep[PatientType]) => x.symptoms),
+						RECLASS(knowledgeDB, Taint("green"))
 				) WHERE (
 					(person: Rep[PersonType], patientSymptom: Rep[(PatientType, String)], knowledgeData: Rep[KnowledgeType]) =>
 						person.personId == patientSymptom._1.personId AND
