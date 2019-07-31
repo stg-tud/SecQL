@@ -35,6 +35,7 @@ package idb.algebra.normalization
 import idb.algebra.base.RelationalAlgebraDerivedOperators
 import idb.algebra.ir._
 import idb.lms.extensions._
+import idb.query.QueryEnvironment
 import scala.virtualization.lms.common._
 import idb.algebra.print.RelationalAlgebraPrintPlan
 import idb.lms.extensions.operations.{SeqOpsExpExt, StringOpsExpExt, OptionOpsExp}
@@ -58,7 +59,7 @@ trait RelationalAlgebraIRNormalizeSubQueries
     override def selection[Domain: Manifest] (
         relation: Rep[Query[Domain]],
         function: Rep[Domain => Boolean]
-    ): Rep[Query[Domain]] =
+    )(implicit env : QueryEnvironment): Rep[Query[Domain]] =
         if (normalize) {
 
 
@@ -105,9 +106,10 @@ trait RelationalAlgebraIRNormalizeSubQueries
                                 )
                             )
 
-                        case _ => super.selection (relation, function)
+                        case _ =>
+                            super.selection (relation, function)
                     }
-                case _ => throw new IllegalArgumentException (function + " is not a Lambda function")
+                case _ => throw new IllegalArgumentException (function.toString + " is not a Lambda function")
             }
         } else
         {

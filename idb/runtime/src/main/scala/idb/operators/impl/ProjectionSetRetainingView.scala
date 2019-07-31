@@ -62,19 +62,15 @@ class ProjectionSetRetainingView[Domain, Range](val relation: Relation[Domain],
     Nil
   }
 
-  override def lazyInitialize() {
-
-  }
-
-  override def endTransaction() {
-    notify_endTransaction()
-  }
-
   /**
    * Applies f to all elements of the view.
    */
   override def foreach[T](f: (Range) => T) {
     relation.foreach((v: Domain) => f(projection(v)))
+  }
+
+  override protected[idb] def resetInternal(): Unit = {
+
   }
 
   override def updated(oldV: Domain, newV: Domain) {

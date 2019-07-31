@@ -32,25 +32,39 @@
  */
 package idb.algebra.compiler
 
+import akka.actor.ActorSystem
+import idb.algebra.{RelationalAlgebraIREssentialsPackage, RelationalAlgebraIROperatorsPackage}
 import idb.algebra.ir.RelationalAlgebraIRBase
+import idb.algebra.remote.PlacementStrategy
+import idb.algebra.remote.placement.StandardPlacementTransformer
+import idb.lms.extensions.RemoteUtils
+import idb.query.QueryEnvironment
+
 
 
 /**
  *
  * @author Ralf Mitschke
  */
-trait RelationalAlgebraGenBaseAsIncremental
-{
+trait RelationalAlgebraGenBaseAsIncremental {
 
-    val IR: RelationalAlgebraIRBase with RelationalAlgebraSAEBinding
+	val IR: RelationalAlgebraIREssentialsPackage
+		with RelationalAlgebraSAEBinding
 
     import IR._
 
-    def compile[Domain] (query: Rep[Query[Domain]]): Relation[Domain] =
+    def compile[Domain : Manifest] (query: Rep[Query[Domain]])(implicit env : QueryEnvironment): Relation[Domain] =
         query match {
             case QueryRelation (relation, _, _, _) => relation
 
-            case QueryTable (table, _, _, _) => table
+            case QueryTable (tbl, _, _, _) => tbl
+
+			case r@Def (Root (q, host)) =>
+               val qt = q //transform(q)
+               val rel = compile (qt)
+	           rel
+
+
 
             case Def(r) =>
                 throw new UnsupportedOperationException ("Compilation not supported for queries of type: " + r.getClass)

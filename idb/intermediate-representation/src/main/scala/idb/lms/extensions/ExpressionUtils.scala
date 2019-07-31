@@ -53,17 +53,18 @@ trait ExpressionUtils
      * Otherwise traversal stops
      * @param e expression to traverse
      * @param f function to apply to expressions and determining sub expression traversal
+	 * @return False, if the traversal was stopped by f. True otherwise.
      */
     def traverseExpTree (e: Exp[Any])(implicit f: Exp[Any] => Boolean) {
-        if (!f (e)) {
+        if (!f (e))
             return
-        }
+
         e match {
-            case Def (s) => {
+            case Def (s) =>
                 val subExpr = syms (s)
                 subExpr.foreach (traverseExpTree)
-            }
-            case _ => return
+
+            case _ =>
         }
     }
 
@@ -75,32 +76,60 @@ trait ExpressionUtils
      * @param f function to apply to expressions and determining sub expression traversal
      */
     def traverseSameTypeExpTree[T] (e: Exp[T])(implicit f: Exp[T] => Boolean) {
-        if (!f (e)) {
+        if (!f (e))
             return
-        }
+
         e match {
-            case Def (s) => {
+            case Def (s) =>
                 val subExpr = syms (s)
                 subExpr.filter (_.isInstanceOf[Sym[T]]).map (_.asInstanceOf[Sym[T]]).foreach (
                     traverseSameTypeExpTree (_)(f)
                 )
-            }
-            case _ => return
+
+            case _ =>
         }
     }
 
 
-    def findSyms (e: Any)(implicit search: Set[Exp[Any]]): Set[Exp[Any]] = {
+	def findSyms (e: Any)(implicit search: Set[Exp[Any]]): Set[Exp[Any]] = {
         val traversed = e match {
             case s@Sym (_) => Set (s).asInstanceOf[Set[Exp[Any]]]
             case _ => Set.empty[Exp[Any]]
         }
         val startResult = search.filter ((_: Exp[Any]) == e)
-
         startResult.union (findSymsRec (e, search.asInstanceOf[Set[Exp[Any]]], traversed))
     }
 
     private def findSymsRec (e: Any, search: Set[Exp[Any]], traversed: Set[Exp[Any]]): Set[Exp[Any]] = {
+        val next = (e match {
+
+            case Def (Field (UnboxedTuple (vars), "_1")) => Set (vars (0))
+            case Def (Field (UnboxedTuple (vars), "_2")) => Set (vars (1))
+            case Def (Field (UnboxedTuple (vars), "_3")) => Set (vars (2))
+            case Def (Field (UnboxedTuple (vars), "_4")) => Set (vars (3))
+            case Def (Field (UnboxedTuple (vars), "_5")) => Set (vars (4))
+
+            case s@Sym (_) => syms (findDefinition (s)).toSet[Exp[Any]]
+            case _ => Set.empty[Exp[Any]]
+        }).diff (traversed)
+        if (next.isEmpty)
+            return Set ()
+        val result = search.intersect (next)
+        val forward = next.diff (search)
+        val nextSeen = traversed.union (forward)
+
+        result.union (
+            for (s <- forward;
+                 n <- findSymsRec (s, search, nextSeen)
+            ) yield
+            {
+                n
+            }
+        )
+    }
+
+	/*
+	private def findSymsRec (e: Any, search: Set[Exp[Any]], traversed: Set[Exp[Any]]): Set[Exp[Any]] = {
         val next = (e match {
 
             case Def (Tuple2Access1 (UnboxedTuple (vars))) => Set (vars (0))
@@ -139,4 +168,5 @@ trait ExpressionUtils
             }
         )
     }
+	 */
 }

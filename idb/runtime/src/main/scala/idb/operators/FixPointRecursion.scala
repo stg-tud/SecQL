@@ -1,6 +1,8 @@
 package idb.operators
 
-import idb.{View, Relation}
+import java.io.PrintStream
+
+import idb.{Relation, View}
 
 
 /**
@@ -21,7 +23,14 @@ trait FixPointRecursion[Domain, Range, Key]
 
     def step: (Domain, Range) => Range
 
-    override protected def children = List (source)
+    override def children = List (source)
+
+    override protected[idb] def printInternal(out : PrintStream)(implicit prefix: String = " "): Unit = {
+        out.println(prefix + s"FixPointRecursion(")
+        printNested(out, source)
+        out.println(prefix + ")")
+    }
+
 }
 
 

@@ -33,6 +33,9 @@
 package idb.algebra.compiler
 
 import idb.algebra.ir.RelationalAlgebraIRBase
+import idb.query.{Host, QueryEnvironment}
+import idb.query.taint.Taint
+
 import scala.language.implicitConversions
 
 /**
@@ -51,18 +54,22 @@ trait RelationalAlgebraSAEBinding
     /**
      * Wraps a table as a leaf in the query tree
      */
-    def table[Domain] (table: Table[Domain])(
-        implicit mDom: Manifest[Domain],
-        mRel: Manifest[Table[Domain]]
+	override def table[Domain](table: Table[Domain], isSet: Boolean = false, taint : Taint = Taint.NO_TAINT, host : Host = Host.local)(
+		implicit mDom: Manifest[Domain],
+		mRel: Manifest[Table[Domain]],
+		env : QueryEnvironment
     ): Rep[Query[Domain]] =
-        super.table (table, table.isSet)
+        super.table (table, isSet, taint, host)
+
+
 
     /**
      * Wraps a compiled relation again as a leaf in the query tree
      */
-    def relation[Domain] (relation: Relation[Domain])(
-        implicit mDom: Manifest[Domain],
-        mRel: Manifest[Relation[Domain]]
-    ): Rep[Query[Domain]] =
-        super.relation (relation, relation.isSet)
+	override def relation[Domain](relation: Relation[Domain], isSet: Boolean = false, taint : Taint = Taint.NO_TAINT, host : Host = Host.local)(
+		implicit mDom: Manifest[Domain],
+		mRel: Manifest[Relation[Domain]],
+		env : QueryEnvironment
+	): Rep[Query[Domain]] =
+        super.relation (relation, isSet, taint, host)
 }

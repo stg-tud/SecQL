@@ -1,6 +1,8 @@
 package idb.operators
 
-import idb.{View, Relation}
+import java.io.PrintStream
+
+import idb.{Relation, View}
 
 
 /**
@@ -30,7 +32,15 @@ trait ExistsInSameDomain[Domain]
 
     //def isStored = left.isStored && right.isStored // should always be true
 
-    override protected def children = List (left, right)
+    override def children = List (left, right)
+
+	override protected[idb] def printInternal(out : PrintStream)(implicit prefix: String = " "): Unit = {
+		out.println(prefix + s"ExistsInSameDomain(")
+		printNested(out, left)
+		printNested(out, right)
+		out.println(prefix + ")")
+	}
+
 }
 
 

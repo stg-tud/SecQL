@@ -36,12 +36,13 @@ import idb.algebra.TestUtils
 import idb.algebra.ir.RelationalAlgebraIRBasicOperators
 import idb.algebra.print.RelationalAlgebraPrintPlanBasicOperators
 import idb.lms.extensions.equivalence.{TupledFunctionsExpAlphaEquivalence, StructExpAlphaEquivalence,
-ScalaOpsPkgExpAlphaEquivalence}
+ExpAlphaEquivalencePkg}
 import idb.lms.extensions.operations.OptionOpsExp
+import idb.query.QueryEnvironment
 import org.junit.Assert._
 import org.junit.{Ignore, Test}
 import scala.virtualization.lms.common.{StaticDataExp, TupledFunctionsExp, StructExp, LiftAll}
-import idb.lms.extensions.ScalaOpsExpOptExtensions
+import idb.lms.extensions.ScalaOpsPkgExpOptExtensions
 
 /**
  *
@@ -52,7 +53,7 @@ class TestIROptPushSelection
     extends RelationalAlgebraIROptPushSelection
     with RelationalAlgebraIRBasicOperators
     with RelationalAlgebraPrintPlanBasicOperators
-    with ScalaOpsExpOptExtensions
+    with ScalaOpsPkgExpOptExtensions
     with LiftAll
     with TestUtils
 {
@@ -62,16 +63,21 @@ class TestIROptPushSelection
 
     override def reset { super.reset }
 
+	override def isPrimitiveType[T](m: Manifest[T]) : Boolean =
+		super.isPrimitiveType[T](m)
+
     @Test
     def testSelectionOverProjectionSimpleInt () {
-        val f1 = fun ((x: Rep[Int]) => x + 2)
+		implicit val local = QueryEnvironment.Local
+
+		val f1 = fun ((x: Rep[Int]) => x + 2)
         val f2 = fun ((x: Rep[Int]) => x > 0)
 
-        val expA = selection (projection (emptyRelation[Int](), f1), f2)
+        val expA = selection (projection (emptyRelation[Int], f1), f2)
 
         val f3 = (x: Rep[Int]) => f2 (f1 (x)) // x > -2
 
-        val expB = projection (selection (emptyRelation[Int](), f3), f1)
+        val expB = projection (selection (emptyRelation[Int], f3), f1)
 
         assertEquals (quoteRelation (expB), quoteRelation (expA))
         assertEquals (expB, expA)
@@ -79,14 +85,16 @@ class TestIROptPushSelection
 
     @Test
     def testSelectionOverProjectionConditionalInt () {
-        val f1 = fun ((x: Rep[Int]) => if (x > 0) unit (true) else unit (false))
+		implicit val local = QueryEnvironment.Local
+
+		val f1 = fun ((x: Rep[Int]) => if (x > 0) unit (true) else unit (false))
         val f2 = fun ((x: Rep[Boolean]) => x)
 
-        val expA = selection (projection (emptyRelation[Int](), f1), f2)
+        val expA = selection (projection (emptyRelation[Int], f1), f2)
 
         val f3 = (x: Rep[Int]) => f2 (f1 (x)) // if (x > 0) unit (true) else unit (false) // x > 0
 
-        val expB = projection (selection (emptyRelation[Int](), f3), f1)
+        val expB = projection (selection (emptyRelation[Int], f3), f1)
 
         assertEquals (quoteRelation (expB), quoteRelation (expA))
         assertEquals (expB, expA)
@@ -94,15 +102,17 @@ class TestIROptPushSelection
 
     @Test
     def testSelectionOverProjectionSimpleTuple () {
-        val f1 = fun ((x: Rep[Int]) => (x, x > 0))
+		implicit val local = QueryEnvironment.Local
+
+		val f1 = fun ((x: Rep[Int]) => (x, x > 0))
 
         val f2 = fun ((x: Rep[(Int, Boolean)]) => x._2)
 
-        val expA = selection (projection (emptyRelation[Int](), f1), f2)
+        val expA = selection (projection (emptyRelation[Int], f1), f2)
 
         val f3 = (x: Rep[Int]) => f2 (f1 (x)) // x > 0
 
-        val expB = projection (selection (emptyRelation[Int](), f3), f1)
+        val expB = projection (selection (emptyRelation[Int], f3), f1)
 
         assertEquals (quoteRelation (expB), quoteRelation (expA))
         assertEquals (expB, expA)
@@ -112,10 +122,12 @@ class TestIROptPushSelection
 
     @Test
     def testSelectionOverProjectionConditionalTuple () {
-        val f1 = fun ((x: Rep[Int]) => if (x > 0) (x, unit (true)) else (x, unit (false)))
+		implicit val local = QueryEnvironment.Local
+
+		val f1 = fun ((x: Rep[Int]) => if (x > 0) (x, unit (true)) else (x, unit (false)))
         val f2 = fun ((x: Rep[(Int, Boolean)]) => x._2)
 
-        val expA = selection (projection (emptyRelation[Int](), f1), f2)
+        val expA = selection (projection (emptyRelation[Int], f1), f2)
 
         val f3 = (x: Rep[Int]) => f2 (f1 (x)) //x > 0 == true
 
@@ -123,7 +135,7 @@ class TestIROptPushSelection
 
         //val f4 = (x: Rep[Int]) => (if (x > 0) unit (true) else unit (false)) == true
 
-        val expB = projection (selection (emptyRelation[Int](), f3), f1)
+        val expB = projection (selection (emptyRelation[Int], f3), f1)
 
         assertEquals (quoteRelation (expB), quoteRelation (expA))
         assertEquals (expB, expA)
@@ -132,15 +144,17 @@ class TestIROptPushSelection
 
     @Test
     def testSelectionWithStaticDataFunction() {
-        val f1 = staticData( (x:Int) => x > 0)
+		implicit val local = QueryEnvironment.Local
+
+		val f1 = staticData( (x:Int) => x > 0)
 
         val f2 = fun((x:Rep[Int]) => x + 1)
 
-        val expA = selection (projection (emptyRelation[Int](), f2), f1)
+        val expA = selection (projection (emptyRelation[Int], f2), f1)
 
         val f3 = (x: Rep[Int]) => f1 (f2 (x))
 
-        val expB = projection (selection (emptyRelation[Int](), f3), f2)
+        val expB = projection (selection (emptyRelation[Int], f3), f2)
 
         assertEquals (quoteRelation (expB), quoteRelation (expA))
         assertEquals (expB, expA)
@@ -149,15 +163,17 @@ class TestIROptPushSelection
 
     @Test
     def testSelectionWithTupledStaticDataFunction() {
-        val f1 = staticData( (x:(Int,Int)) => x._1 > 0)
+		implicit val local = QueryEnvironment.Local
+
+		val f1 = staticData( (x:(Int,Int)) => x._1 > 0)
 
         val f2 = fun((x1:Rep[Int], x2 :Rep[Int]) => (x1 + 1, x2))
 
-        val expA = selection (projection (emptyRelation[(Int,Int)](), f2), f1)
+        val expA = selection (projection (emptyRelation[(Int,Int)], f2), f1)
 
         val f3 = (x: Rep[(Int,Int)]) => f1 (f2 (x))
 
-        val expB = projection (selection (emptyRelation[(Int,Int)](), f3), f2)
+        val expB = projection (selection (emptyRelation[(Int,Int)], f3), f2)
 
         assertEquals (quoteRelation (expB), quoteRelation (expA))
         assertEquals (expB, expA)

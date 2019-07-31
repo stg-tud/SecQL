@@ -1,14 +1,14 @@
 package idb.integration.test.operators
 
-import idb.syntax.iql._
+import idb.query.QueryEnvironment
+import idb.syntax.iql.{IR, _}
 import org.junit.Assert._
 import org.hamcrest.CoreMatchers._
 import org.junit.{Before, Test}
-import idb.syntax.iql.IR._
 import idb.integration.test.UniversityTestData
 import idb.integration.test.UniversityDatabase._
 import idb.schema.university.Student
-import idb.{BagTable, MaterializedView}
+import idb.{BagTable, MaterializedView, algebra}
 
 
 /**
@@ -18,7 +18,7 @@ import idb.{BagTable, MaterializedView}
  */
 class TestProjection extends AbstractStudentOperatorTest[String] with UniversityTestData {
 
-	val IR = idb.syntax.iql.IR
+	val IR = IR
 
 	val printQuery = true
 
@@ -27,8 +27,12 @@ class TestProjection extends AbstractStudentOperatorTest[String] with University
 
 	@Before
 	def setUp() {
+		implicit val env = QueryEnvironment.Local
+
 		table = BagTable.empty[Student]
-		query = compile(SELECT ((s : Rep[Student]) => s.lastName) FROM (table))
+		query = compile (
+			SELECT ((s : Rep[Student]) => s.lastName) FROM table
+		)
 	}
 
 

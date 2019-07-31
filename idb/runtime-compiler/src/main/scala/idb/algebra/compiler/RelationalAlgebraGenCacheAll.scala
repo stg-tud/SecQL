@@ -32,7 +32,11 @@
  */
 package idb.algebra.compiler
 
+import idb.algebra.{RelationalAlgebraIREssentialsPackage, RelationalAlgebraIROperatorsPackage}
 import idb.algebra.ir.RelationalAlgebraIRBase
+import idb.query.QueryEnvironment
+
+import scala.virtualization.lms.common.FunctionsExp
 
 
 /**
@@ -44,12 +48,13 @@ trait RelationalAlgebraGenCacheAll
     with RelationalAlgebraGenQueryCache
 {
 
-    val IR: RelationalAlgebraIRBase with RelationalAlgebraSAEBinding
+    val IR: RelationalAlgebraIREssentialsPackage
+        with RelationalAlgebraSAEBinding
 
     import IR._
 
 
-    override def compile[Domain] (query: Rep[Query[Domain]]): Relation[Domain] = {
+    override def compile[Domain : Manifest] (query: Rep[Query[Domain]])(implicit env : QueryEnvironment): Relation[Domain] = {
         queryCache.getOrElse (query, {
             val result = super.compile (query)
             queryCache += (query -> result)

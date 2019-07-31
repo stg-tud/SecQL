@@ -32,7 +32,11 @@
  */
 package idb.lms.extensions
 
-import scala.virtualization.lms.common.{BooleanOpsExp, TupledFunctionsExp, TupleOpsExp}
+
+import idb.lms.extensions.print.QuoteFunction
+import idb.query.taint._
+
+import scala.virtualization.lms.common._
 import scala.reflect.SourceContext
 
 
@@ -43,47 +47,40 @@ import scala.reflect.SourceContext
 trait FunctionUtils
     extends TupledFunctionsExp
     with BooleanOpsExp
+    with StaticDataExp
     with ExpressionUtils
+    //with ScalaOpsPkgExp
 {
 
+
     def parameterType[A, B] (function: Exp[A => B]): Manifest[Any] = {
-        function.tp.typeArguments (0).asInstanceOf[Manifest[Any]]
+        function.tp.typeArguments.head.asInstanceOf[Manifest[Any]]
     }
 
     def returnType[A, B] (function: Exp[A => B]): Manifest[Any] = {
         function.tp.typeArguments (1).asInstanceOf[Manifest[Any]]
     }
 
-    def parameters[A, B] (function: Exp[A => B]): List[Exp[Any]] = {
+    def parameters[A, B] (function: Exp[A => B]): Seq[Exp[Any]] = {
         parametersAsList (
             parameter (function)
         )
     }
 
-	//override def findDefinition[T](d: Def[T]): Option[Stm] = None
-
-    def parametersAsList[A] (params: Exp[A]): List[Exp[Any]] = {
+    def parametersAsList[A] (params: Exp[A]): Seq[Exp[Any]] = {
         params match {
             case UnboxedTuple (xs) => xs
-            case Def (ETuple2 (a, b)) => List (a, b)
-            case Def (ETuple3 (a, b, c)) => List (a, b, c)
-            case Def (ETuple4 (a, b, c, d)) => List (a, b, c, d)
-            case Def (ETuple5 (a, b, c, d, e)) => List (a, b, c, d, e)
-            case x => List (x)
+            case Def(Struct(_,fields)) => fields.map((t : (String, Rep[Any])) => t._2)
+            case x => scala.Seq (x)
         }
     }
 
-    def parameterManifest[A] (a: Exp[A]): Manifest[Any] = {
-        a.tp.asInstanceOf[Manifest[Any]]
+    def parameterManifest[A] (a: Exp[A]): Manifest[A] = {
+        a.tp.asInstanceOf[Manifest[A]]
     }
 
     def parameterManifest[A, B] (a: Exp[A], b: Exp[B]): Manifest[Any] = {
         tupledManifest (a.tp, b.tp).asInstanceOf[Manifest[Any]]
-        /*
-        implicit val ma = a.tp
-        implicit val mb = b.tp
-        manifest[(A, B)].asInstanceOf[Manifest[Any]]
-        */
     }
 
     def tupledManifest[A, B] (
@@ -115,7 +112,7 @@ trait FunctionUtils
         function match {
             case Def (Lambda (_, x: Exp[A], _)) => x
             case c@Const (_) => unboxedFresh[A](c.tp.typeArguments (0).typeArguments (0).asInstanceOf[Manifest[A]])
-            case _ => throw new IllegalArgumentException ("expected Lambda, found " + function)
+            case _ => throw new java.lang.IllegalArgumentException ("expected Lambda, found " + function.toString)
         }
     }
 
@@ -124,19 +121,19 @@ trait FunctionUtils
     }
 
 
-    def freeVars[A, B] (function: Exp[A => B]): List[Exp[Any]] = {
+    def freeVars[A, B] (function: Exp[A => B]): Seq[Exp[Any]] = {
         val params = parameters (function)
         unusedVars (function, params)
     }
 
-    def unusedVars[A, B] (function: Exp[A => B], vars: List[Exp[Any]]): List[Exp[Any]] = {
+    def unusedVars[A, B] (function: Exp[A => B], vars: Seq[Exp[Any]]): Seq[Exp[Any]] = {
         val varsAsSet = vars.toSet
         val used =
             function match {
                 case Def (Lambda (_, _, body)) =>
                     findSyms (body.res)(varsAsSet)
-                case Const (_) => Set.empty[Exp[Any]]
-                case _ => throw new IllegalArgumentException ("expected Lambda, found " + function)
+                case Const (_) => scala.collection.Set.empty[Exp[Any]]
+                case _ => throw new java.lang.IllegalArgumentException ("expected Lambda, found " + function.toString)
             }
         varsAsSet.diff (used).toList
     }
@@ -146,61 +143,87 @@ trait FunctionUtils
         function match {
             case Def (Lambda (_, _, Block (b))) => b
             case c: Const[B@unchecked] => c // a constant function returns a value of type B
-            case _ => throw new IllegalArgumentException ("expected Lambda, found " + function)
+            case _ => throw new java.lang.IllegalArgumentException ("expected Lambda, found " + function.toString)
         }
     }
 
-    def isDisjunctiveParameterEquality[A] (function: Exp[A => Boolean]): Boolean = {
+    def isDisjunctiveParameterEquality[A,B,C](function: Exp[A => Boolean])(implicit mDomX : Manifest[B], mDomY : Manifest[C]): Boolean = {
         val params = parameters (function)
-        if (params.size != 2) {
-            return false
-        }
-        body (function) match {
-            case Def (Equal (lhs, rhs)) => {
-                val usedByLeft = findSyms (lhs)(params.toSet)
-                val usedByRight = findSyms (rhs)(params.toSet)
-                usedByLeft.size == 1 && usedByRight.size == 1 && usedByLeft != usedByRight
-            }
-            case _ => false
-        }
+		val b = body (function)
+
+		//If function has one parameter that is a tuple
+		//Type of function: Tuple2[B,C] => Boolean
+        if (params.size == 1 && isTuple2Manifest(params(0).tp)) {
+
+			val t = params(0).asInstanceOf[Exp[Tuple2[B,C]]]
+			val tupledParams = scala.collection.immutable.Set(t._1, t._2)
+			b match {
+				case Def (Equal (lhs, rhs)) =>
+					val usedByLeft = findSyms (lhs)(tupledParams)
+					val usedByRight = findSyms (rhs)(tupledParams)
+					usedByLeft.size == 1 && usedByRight.size == 1 && usedByLeft != usedByRight
+
+				case _ =>
+					false
+
+			}
+		//... else if the function has two parameters
+		} else if (params.size == 2) {
+
+			b match {
+				case Def (Equal (lhs, rhs)) =>
+					val usedByLeft = findSyms (lhs)(params.toSet)
+					val usedByRight = findSyms (rhs)(params.toSet)
+					val bool = usedByLeft.size == 1 && usedByRight.size == 1 && usedByLeft != usedByRight
+					bool
+
+				case _ =>
+					false
+
+			}
+        } else {
+			false
+		}
     }
 
 
-    def isTuple2Manifest[T] (m: Manifest[T]): Boolean = m.erasure.getName startsWith "scala.Tuple2"
+    def isTuple2Manifest[T] (m: Manifest[T]): Boolean = m.runtimeClass.getName startsWith "scala.Tuple2"
 
-    def isIdentity[Domain, Range] (function: Rep[Domain => Range]) = {
+    def isIdentity[Domain, Range] (function: Rep[Domain => Range]) : Boolean = {
         function match {
-            case Def (Lambda (_, UnboxedTuple (List (a1, b1)), Block (Def (ETuple2 (a2, b2))))) =>
-                a1 == a2 && b1 == b2
-            case Def (Lambda (_, UnboxedTuple (List (a1, b1, c1)), Block (Def (ETuple3 (a2, b2, c2))))) =>
-                a1 == a2 && b1 == b2 && c1 == c2
-            case Def (Lambda (_, UnboxedTuple (List (a1, b1, c1, d1)), Block (Def (ETuple4 (a2, b2, c2, d2))))) =>
-                a1 == a2 && b1 == b2 && c1 == c2 && d1 == d2
-            case Def (
-            Lambda (_, UnboxedTuple (List (a1, b1, c1, d1, e1)), Block (Def (ETuple5 (a2, b2, c2, d2, e2))))) =>
-                a1 == a2 && b1 == b2 && c1 == c2 && d1 == d2 && e1 == e2
-            case Def (Lambda (_, x, Block (body))) =>
+			//TODO What about Const?
+			case Def(Lambda(_, UnboxedTuple(l1), Block(Def(Struct(tag, fields))))) =>
+				l1 == fields.map(t => t._2)
+            case Def(Lambda(_, x, Block(body))) =>
                 body == x
+			//case c@Const(_) =>
             case _ => false
         }
     }
 
-    def returnsLeftOfTuple2[Domain, Range] (function: Rep[Domain => Range]) = {
+    def returnsLeftOfTuple2[Domain, Range] (function: Rep[Domain => Range]) : Boolean = {
         function match {
-            case Def (Lambda (_, x, Block (Def (Tuple2Access1 (t))))) =>
-                x == t
-            case Def (Lambda (_, UnboxedTuple (List (a, _)), Block (r))) =>
-                a == r
+           // case Def (Lambda (_, UnboxedTuple (scala.List (a, _)), Block (r))) =>
+           //     a == r
+			case Def (Lambda (_, t1, Block (body))) =>
+				body match {
+					case Def(FieldApply(`t1`, "_1")) => true
+					case _ => false
+				}
             case _ => false
         }
     }
 
-    def returnsRightOfTuple2[Domain, Range] (function: Rep[Domain => Range]) = {
+    def returnsRightOfTuple2[Domain, Range] (function: Rep[Domain => Range]) : Boolean = {
         function match {
-            case Def (Lambda (_, x, Block (Def (Tuple2Access2 (t))))) =>
-                x == t
-            case Def (Lambda (_, UnboxedTuple (List (_, b)), Block (r))) =>
-                b == r
+           // case Def (Lambda (_, UnboxedTuple (scala.List (_, b)), Block (r))) =>
+           //     b == r
+			case Def (Lambda (_, t1, Block (body))) =>
+				body match {
+					case Def(FieldApply(`t1`, "_2")) => true
+					case _ => false
+				}
+
             case _ => false
         }
     }
@@ -222,130 +245,98 @@ trait FunctionUtils
         implicit val mRange = returnType (function).asInstanceOf[Manifest[Range]]
         function match {
 
-            case Def (Lambda (_, UnboxedTuple (List (a, b)), Block (body)))
-                if body == a => 0
-            case Def (Lambda (_, UnboxedTuple (List (a, b)), Block (body)))
-                if body == b => 1
-            case Def (Lambda (_, p: UnboxedTuple[_], Block (Def (Tuple2Access1 (t)))))
-                if p == t => 0
-            case Def (Lambda (_, p: UnboxedTuple[_], Block (Def (Tuple2Access2 (t)))))
-                if p == t => 1
+            case Def (Lambda (_, UnboxedTuple (scala.List (a, b)), Block (body)))
+				if body == a =>	0
+            case Def (Lambda (_, UnboxedTuple (scala.List (a, b)), Block (body)))
+				if body == b =>	1
 
-
-            case Def (Lambda (_, UnboxedTuple (List (a, b, c)), Block (body)))
+            case Def (Lambda (_, UnboxedTuple (scala.List (a, b, c)), Block (body)))
                 if body == a => 0
-            case Def (Lambda (_, UnboxedTuple (List (a, b, c)), Block (body)))
+            case Def (Lambda (_, UnboxedTuple (scala.List (a, b, c)), Block (body)))
                 if body == b => 1
-            case Def (Lambda (_, UnboxedTuple (List (a, b, c)), Block (body)))
+            case Def (Lambda (_, UnboxedTuple (scala.List (a, b, c)), Block (body)))
                 if body == c => 2
-            case Def (Lambda (_, p: UnboxedTuple[_], Block (Def (Tuple3Access1 (t)))))
-                if p == t => 0
-            case Def (Lambda (_, p: UnboxedTuple[_], Block (Def (Tuple3Access2 (t)))))
-                if p == t => 1
-            case Def (Lambda (_, p: UnboxedTuple[_], Block (Def (Tuple3Access3 (t)))))
-                if p == t => 2
 
 
-            case Def (Lambda (_, UnboxedTuple (List (a, b, c, d)), Block (body)))
+            case Def (Lambda (_, UnboxedTuple (scala.List (a, b, c, d)), Block (body)))
                 if body == a => 0
-            case Def (Lambda (_, UnboxedTuple (List (a, b, c, d)), Block (body)))
+            case Def (Lambda (_, UnboxedTuple (scala.List (a, b, c, d)), Block (body)))
                 if body == b => 1
-            case Def (Lambda (_, UnboxedTuple (List (a, b, c, d)), Block (body)))
+            case Def (Lambda (_, UnboxedTuple (scala.List (a, b, c, d)), Block (body)))
                 if body == c => 2
-            case Def (Lambda (_, UnboxedTuple (List (a, b, c, d)), Block (body)))
+            case Def (Lambda (_, UnboxedTuple (scala.List (a, b, c, d)), Block (body)))
                 if body == d => 3
-            case Def (Lambda (_, p: UnboxedTuple[_], Block (Def (Tuple4Access1 (t)))))
-                if p == t => 0
-            case Def (Lambda (_, p: UnboxedTuple[_], Block (Def (Tuple4Access2 (t)))))
-                if p == t => 1
-            case Def (Lambda (_, p: UnboxedTuple[_], Block (Def (Tuple4Access3 (t)))))
-                if p == t => 2
-            case Def (Lambda (_, p: UnboxedTuple[_], Block (Def (Tuple4Access4 (t)))))
-                if p == t => 3
 
 
-            case Def (Lambda (_, UnboxedTuple (List (a, b, c, d, e)), Block (body)))
+
+            case Def (Lambda (_, UnboxedTuple (scala.List (a, b, c, d, e)), Block (body)))
                 if body == a => 0
-            case Def (Lambda (_, UnboxedTuple (List (a, b, c, d, e)), Block (body)))
+            case Def (Lambda (_, UnboxedTuple (scala.List (a, b, c, d, e)), Block (body)))
                 if body == b => 1
-            case Def (Lambda (_, UnboxedTuple (List (a, b, c, d, e)), Block (body)))
+            case Def (Lambda (_, UnboxedTuple (scala.List (a, b, c, d, e)), Block (body)))
                 if body == c => 2
-            case Def (Lambda (_, UnboxedTuple (List (a, b, c, d, e)), Block (body)))
+            case Def (Lambda (_, UnboxedTuple (scala.List (a, b, c, d, e)), Block (body)))
                 if body == d => 3
-            case Def (Lambda (_, UnboxedTuple (List (a, b, c, d, e)), Block (body)))
+            case Def (Lambda (_, UnboxedTuple (scala.List (a, b, c, d, e)), Block (body)))
                 if body == e => 4
-            case Def (Lambda (_, p: UnboxedTuple[_], Block (Def (Tuple5Access1 (t)))))
-                if p == t => 0
-            case Def (Lambda (_, p: UnboxedTuple[_], Block (Def (Tuple5Access2 (t)))))
-                if p == t => 1
-            case Def (Lambda (_, p: UnboxedTuple[_], Block (Def (Tuple5Access3 (t)))))
-                if p == t => 2
-            case Def (Lambda (_, p: UnboxedTuple[_], Block (Def (Tuple5Access4 (t)))))
-                if p == t => 3
-            case Def (Lambda (_, p: UnboxedTuple[_], Block (Def (Tuple5Access5 (t)))))
-                if p == t => 4
 
             case Def (Lambda (_, x, Block (body)))
                 if body == x => 0
+
+			case Def (Lambda (_, t1, Block (body))) =>
+				body match {
+					case Def(FieldApply(`t1`, "_1") ) => 0
+					case Def(FieldApply(`t1`, "_2") ) => 1
+					case Def(FieldApply(`t1`, "_3") ) => 2
+					case Def(FieldApply(`t1`, "_4") ) => 3
+					case Def(FieldApply(`t1`, "_5") ) => 4
+					case _ => -1
+				}
 
             case _ => -1
         }
     }
 
-    /**
-     * create a new conjunction.
-     * Types are checked dynamically to conform to Domain.
-     *
-     */
-    /*def createConjunction[A : Manifest , B : Manifest , Domain: Manifest] (
-        fa: Rep[A => Boolean],
-        fb: Rep[B => Boolean]
-    ): Rep[Domain => Boolean] = {
+	/**
+	 * Checks whether a function accesses its parameters
+	 * @param func The function in question
+	 * @param accessIndex Parameter index of the parameter to be checked
+	 * @return True, if the function accesses the parameter
+	 */
+	def functionHasParameterAccess(func : Rep[_ => _], accessIndex : Int) : Boolean = {
+		func match {
+			case Def(Lambda(_, x@UnboxedTuple(l), y)) =>
+				var result = false
+				val traverseResult = traverseExpTree(y.res)(
+					{
+						case Def(FieldApply(`x`, s)) if s == s"_${accessIndex + 1}" =>
+							result = true //x._1 has been found
+							false
+						case s@Sym(_) if s == l(accessIndex) =>
+							result = true //x._1 has been found
+							false
+						case _ => true
+					}
+				)
+				result
 
-        val mDomain = implicitly[Manifest[Domain]]
-        val mA : Manifest[A] = fa.tp.typeArguments (0).asInstanceOf[Manifest[A]]
-        val mB : Manifest[B] = fb.tp.typeArguments (0).asInstanceOf[Manifest[B]]
-
-        var tupledDomainWithA = false
-        var tupledDomainWithB = false
-
-        println(mDomain.runtimeClass.getName)
-       // println(Class[Tuple2[Any,Any]])
-
-        if (!(mA >:> mDomain)) {
-            if (mDomain.runtimeClass.getName.startsWith("scala.Tuple2") && (mDomain.typeArguments(0) equals mA)) {
-                tupledDomainWithA = true
-            } else {
-                throw new IllegalArgumentException (fa.tp.typeArguments (0) + " must conform to " + mDomain)
-            }
-        }
-        if (!(mB >:> mDomain)) {
-            if (mDomain.runtimeClass.getName.startsWith("scala.Tuple2") && (mDomain.typeArguments(1) equals mB)) {
-                tupledDomainWithB = true
-            } else {
-                throw new IllegalArgumentException (fb.tp.typeArguments (0) + " must conform to " + mDomain)
-            }
-        }
-
-        var faUnsafe : Rep[Domain => Boolean] = null
-        var fbUnsafe : Rep[Domain => Boolean] = null
-
-        if (tupledDomainWithA) {
-            faUnsafe = fun ((x : Rep[Domain]) => fa(tuple2_get1(x.asInstanceOf[Rep[(A,_)]])))(mDomain, manifest[Boolean])
-        } else {
-            faUnsafe = fa.asInstanceOf[Rep[Domain => Boolean]]
-        }
-        if(tupledDomainWithB) {
-            fbUnsafe =
-                fun ((x : Rep[Domain]) =>
-                        fb(tuple2_get2(x.asInstanceOf[Rep[(_,B)]])))(mDomain, manifest[Boolean])
-        } else {
-            fbUnsafe = fb.asInstanceOf[Rep[Domain => Boolean]]
-        }
-
-        val result = fun ((x: Rep[Domain]) => faUnsafe (x) && fbUnsafe (x))(mDomain, manifest[Boolean])
-        result
-    }  */
+			//if x == sym
+			case Def(Lambda(_, x, y)) =>
+				var result = false
+				val traverseResult = traverseExpTree(y.res)(
+				{
+					case s@Sym(_) if s == x =>
+						result = true
+						false
+					case _ => true
+				}
+				)
+				result
+			case _ =>
+				Predef.println(s"FunctionUtils: Warning! $func is not a lambda!")
+				false
+		}
+	}
 
     def createConjunction[A, B, Domain: Manifest] (
         fa: Rep[A => Boolean],
@@ -353,10 +344,10 @@ trait FunctionUtils
     ): Rep[Domain => Boolean] = {
         val mDomain = implicitly[Manifest[Domain]]
 
-        if (!(fa.tp.typeArguments (0) >:> mDomain)) {
-            throw new IllegalArgumentException (fa.tp.typeArguments (0) + " must conform to " + mDomain)
-        } else if (!(fb.tp.typeArguments (0) >:> mDomain)) {
-            throw new IllegalArgumentException (fb.tp.typeArguments (0) + " must conform to " + mDomain)
+        if (!(fa.tp.typeArguments.head >:> mDomain)) {
+            throw new java.lang.IllegalArgumentException (s"${fa.tp.typeArguments.head} must conform to $mDomain")
+        } else if (!(fb.tp.typeArguments.head >:> mDomain)) {
+            throw new java.lang.IllegalArgumentException (s"${fb.tp.typeArguments.head} must conform to $mDomain")
         }
 
         val faUnsafe = fa.asInstanceOf[Rep[Domain => Boolean]]
@@ -366,22 +357,23 @@ trait FunctionUtils
         result
     }
 
-    def printEffects[T](ef: List[Exp[T]]): String =
-        ef.foldRight("")((x,y) => s"${printExp(x)}, $y")
+    def stringEffects[T](ef: List[Exp[T]]): String =
+        ef.foldRight("")((x,y) => s"${stringExp(x)}, $y")
 
-    def printExp[T](e: Exp[T]): String = e match {
-        case Def(Reify(e, _, ef)) => s"reify(${printExp(e)}, {${printEffects(ef)}})"
-        case Def(Equal(e1, e2)) => s"${printExp(e1)} == ${printExp(e2)}"
+    def stringExp[T](e: Exp[T]): String = e match {
+        case Def(Reify(e, _, ef)) => s"reify(${stringExp(e)}, {${stringEffects(ef)}})"
+        case Def(Equal(e1, e2)) => s"${stringExp(e1)} == ${stringExp(e2)}"
         //    case Def(Field(a)) => a
         case Const(c) => c.toString
         case Def(d) => d.toString
+        case x => x.toString
     }
 
-    def printFun[A,B](function: Rep[Function[A,B]]): String = function match {
+    def stringFun[A,B](function: Rep[Function[A,B]]): String = function match {
         case Def (Lambda (_, x, body)) =>
-            s"(${x.tp.toString()} => ${printExp(body.res)}})"
-        case Const (c) => c.toString
-        case _ => throw new IllegalArgumentException ("expected Lambda, found " + function)
+            s"(${x.tp.toString()} => ${stringExp(body.res)}})"
+        case Const (c) => "Const" + c.toString
+        case _ => throw new IllegalArgumentException ("expected Lambda, found " + function.toString)
     }
 
 
@@ -396,9 +388,9 @@ trait FunctionUtils
     ): Rep[Domain => Boolean] = {
         val mDomain = implicitly[Manifest[Domain]]
         if (!(fa.tp.typeArguments (0) >:> mDomain)) {
-            throw new IllegalArgumentException (fa.tp.typeArguments (0) + " must conform to " + mDomain)
+            throw new IllegalArgumentException (s"${fa.tp.typeArguments (0)} must conform to $mDomain")
         } else if (!(fb.tp.typeArguments (0) >:> mDomain)) {
-            throw new IllegalArgumentException (fb.tp.typeArguments (0) + " must conform to " + mDomain)
+            throw new IllegalArgumentException (s"${fb.tp.typeArguments (0)} must conform to $mDomain")
         }
 
         val faUnsafe = fa.asInstanceOf[Rep[Domain => Boolean]]
@@ -406,4 +398,12 @@ trait FunctionUtils
 
         fun ((x: Rep[Domain]) => faUnsafe (x) || fbUnsafe (x))(mDomain, manifest[Boolean])
     }
+
+
+
+
+
+
+
+
 }

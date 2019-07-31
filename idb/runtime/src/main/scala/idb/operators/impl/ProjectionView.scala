@@ -46,21 +46,16 @@ import idb.Relation
  * @author Ralf Mitschke
  *
  */
-class ProjectionView[Domain, Range] (
-    val relation: Relation[Domain],
-    val projection: Domain => Range,
-    val isSet: Boolean
+case class ProjectionView[Domain, Range] (
+    relation: Relation[Domain],
+    projection: Domain => Range,
+    isSet: Boolean
 )
     extends Projection[Domain, Range]
     with Observer[Domain]
     with NotifyObservers[Range]
 {
-    relation addObserver this
-
-
-    protected def lazyInitialize () {
-        /* do nothing */
-    }
+	relation addObserver this
 
 
     override protected def childObservers (o: Observable[_]): Seq[Observer[_]] = {
@@ -70,39 +65,39 @@ class ProjectionView[Domain, Range] (
         Nil
     }
 
-    override def endTransaction () {
-        notify_endTransaction ()
+    override protected[idb] def resetInternal(): Unit = {
+
     }
+
 
     /**
      * Applies f to all elements of the view.
      */
-    def foreach[T] (f: (Range) => T) {
+    override def foreach[T] (f: (Range) => T) {
         relation.foreach ((v: Domain) => f (projection (v)))
     }
 
-    def updated (oldV: Domain, newV: Domain) {
+	override def updated (oldV: Domain, newV: Domain) {
         notify_updated (projection (oldV), projection (newV))
     }
 
-    def removed (v: Domain) {
+	override def removed (v: Domain) {
         notify_removed (projection (v))
     }
 
-    def added (v: Domain) {
+	override def added (v: Domain) {
         notify_added (projection (v))
     }
 
 
-  override def removedAll(vs: Seq[Domain]) {
-    val removed = vs map (projection(_))
-    notify_removedAll(removed)
-  }
+	override def removedAll(vs: Seq[Domain]) {
+		val removed = vs map (projection(_))
+		notify_removedAll(removed)
+	}
 
-  override def addedAll(vs: Seq[Domain]) {
-    val added = vs map (projection(_))
-    notify_addedAll(added)
-  }
+	override def addedAll(vs: Seq[Domain]) {
+		val added = vs map (projection(_))
+		notify_addedAll(added)
+	}
 
 }
-

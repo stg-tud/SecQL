@@ -57,9 +57,7 @@ class ExistsInSameDomainView[Domain](val left: MaterializedView[Domain],
 
     right addObserver RightObserver
 
-	override def lazyInitialize() {
-
-	}
+    override protected[idb] def resetInternal(): Unit = ???
 
     override protected def childObservers (o: Observable[_]): Seq[Observer[_]] =
     {
@@ -99,15 +97,6 @@ class ExistsInSameDomainView[Domain](val left: MaterializedView[Domain],
 
     object LeftObserver extends Observer[Domain]
     {
-        override def endTransaction() {
-            leftFinished = true
-            if (rightFinished)
-            {
-                notify_endTransaction()
-				leftFinished = false
-                rightFinished = false
-            }
-        }
 
         def updated(oldV: Domain, newV: Domain) {
             // we are notified after the update, hence the left will be updated to newV
@@ -159,15 +148,6 @@ class ExistsInSameDomainView[Domain](val left: MaterializedView[Domain],
 
     object RightObserver extends Observer[Domain]
     {
-        override def endTransaction() {
-            rightFinished = true
-            if (leftFinished)
-            {
-                notify_endTransaction ()
-                leftFinished = false
-                rightFinished = false
-            }
-        }
 
         // update operations on right relation
         def updated(oldV: Domain, newV: Domain) {

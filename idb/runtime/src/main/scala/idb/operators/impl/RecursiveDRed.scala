@@ -97,16 +97,14 @@ class RecursiveDRed[Domain](val relation: Relation[Domain],
   // delete supports
   private var rederivations: Seq[Domain] = Seq()
 
-  override def lazyInitialize() {
-
-  }
+  override protected[idb] def resetInternal(): Unit = ???
 
   def added(v: Domain) {
     addedAll(Seq(v))
   }
 
   def addedAll(vs: Seq[Domain]) {
-    println(s"Recursive add, size ${vs.size}")
+//    println(s"Recursive add, size ${vs.size}")
 
     val newVs = vs filter {v =>
       if (supportedElements.contains(v)) {
@@ -169,8 +167,8 @@ class RecursiveDRed[Domain](val relation: Relation[Domain],
   }
 
   def removedAll(vs: Seq[Domain]) {
-    println(s"Recursive rem, size ${vs.size}")
-    
+//    println(s"Recursive rem, size ${vs.size}")
+
     val newVs = vs filter { v =>
       if (deletedElements.contains(v)) {
         // we have reached a value that was previously defined.
@@ -262,20 +260,6 @@ class RecursiveDRed[Domain](val relation: Relation[Domain],
       removed(oldV)
       added(newV)
     }
-  }
-
-
-  var isNotifyingEndTransaction = false
-
-  override def endTransaction() {
-    if (transactional) {
-      supportedElements = mutable.HashMap.empty
-    }
-    if (!isNotifyingEndTransaction) {
-      isNotifyingEndTransaction = true
-      notify_endTransaction()
-    }
-    isNotifyingEndTransaction = false
   }
 }
 

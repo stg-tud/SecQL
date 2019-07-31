@@ -1,17 +1,17 @@
 package idb.integration.test.operators
 
-import idb.syntax.iql._
+import idb.query.QueryEnvironment
+import idb.syntax.iql.{IR, _}
 import org.junit.Assert._
 import org.hamcrest.CoreMatchers._
 import org.junit.{Before, Test}
-import idb.schema.university.{Registration, Student, Course}
-import idb.syntax.iql.IR._
+import idb.schema.university.{Course, Registration, Student}
 import idb.algebra.print.RelationalAlgebraPrintPlan
 import idb.integration.test.UniversityTestData
 import idb.integration.test.UniversityDatabase._
 import idb.schema.university.Student
 import idb.schema.university.Student
-import idb.{BagTable, MaterializedView}
+import idb.{BagTable, MaterializedView, algebra}
 
 
 /**
@@ -21,19 +21,23 @@ import idb.{BagTable, MaterializedView}
  */
 class TestSelection extends AbstractStudentOperatorTest[Student] with UniversityTestData {
 
-	val IR = idb.syntax.iql.IR
+	val IR = IR
 
 	val printQuery = true
 
 	var query : Relation[Student] = null
 	var table : Table[Student] = null
 
+
 	@Before
 	def setUp() {
+		implicit val env = QueryEnvironment.Local
+
 		table = BagTable.empty[Student]
-		query = compile(
+		query = compile (
 			SELECT (*) FROM table WHERE ((s : Rep[Student]) => s.matriculationNumber < 5 )
 		)
+
 	}
 
 

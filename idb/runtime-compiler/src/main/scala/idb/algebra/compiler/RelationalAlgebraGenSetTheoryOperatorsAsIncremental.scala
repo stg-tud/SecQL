@@ -32,13 +32,14 @@
  */
 package idb.algebra.compiler
 
-import idb.algebra.ir.{RelationalAlgebraIRSetTheoryOperators, RelationalAlgebraIRAggregationOperators, RelationalAlgebraIRRecursiveOperators, RelationalAlgebraIRBasicOperators}
-import idb.lms.extensions.CompileScalaExt
+import idb.algebra.{RelationalAlgebraIREssentialsPackage, RelationalAlgebraIROperatorsPackage}
+import idb.algebra.ir.{RelationalAlgebraIRAggregationOperators, RelationalAlgebraIRBasicOperators, RelationalAlgebraIRRecursiveOperators, RelationalAlgebraIRSetTheoryOperators}
+import idb.lms.extensions.ScalaCodegenExt
 import idb.operators.impl._
-import idb.operators.impl.opt._
+import idb.query.QueryEnvironment
+
 import scala.virtualization.lms.common.ScalaGenEffect
 import scala.virtualization.lms.common.FunctionsExp
-import idb.MaterializedView
 
 /**
  *
@@ -46,44 +47,30 @@ import idb.MaterializedView
  */
 trait RelationalAlgebraGenSetTheoryOperatorsAsIncremental
     extends RelationalAlgebraGenBaseAsIncremental
-    with CompileScalaExt
+    with ScalaCodegenExt
     with ScalaGenEffect
 {
 
-    val IR: RelationalAlgebraIRBasicOperators
-		with RelationalAlgebraIRSetTheoryOperators
-		with RelationalAlgebraIRRecursiveOperators
-		with RelationalAlgebraIRAggregationOperators
+	val IR: RelationalAlgebraIREssentialsPackage
 		with RelationalAlgebraSAEBinding
-		with FunctionsExp
 
     import IR._
     // TODO for unionMax, intersection and set difference, there is a choice to materialize the underlying relations,
     // or to materialize data in an internal representation, as currently done by difference
-    override def compile[Domain] (query: Rep[Query[Domain]]): Relation[Domain] = {
+    override def compile[Domain : Manifest] (query: Rep[Query[Domain]])(implicit env : QueryEnvironment): Relation[Domain] = {
         query match {
 
-			case Def (e@UnionAdd (a, b)) => {
+			case Def (e@UnionAdd (a, b)) =>
 				new UnionViewAdd (compile (a), compile (b), false)
-			}
-			case Def (e@UnionMax (a, b)) => {
-				if(e.isIncrementLocal)
-					new TransactionalUnionMaxView(compile (a) , compile (b) , false)
-				else
-					new UnionViewMax (compile (a).asMaterialized, compile (b).asMaterialized, false)
-			}
-			case Def (e@Intersection (a, b)) => {
-				if (e.isIncrementLocal)
-					new TransactionalIntersectionView (compile (a), compile (b), false)
-				else
-					new IntersectionView (compile (a).asMaterialized, compile (b).asMaterialized, false)
-			}
-			case Def (e@Difference (a, b)) => {
-				if (e.isIncrementLocal)
-					new TransactionalDifferenceView (compile (a), compile (b), false)
-				else
-					new DifferenceView (compile (a), compile (b), false)
-			}
+
+			case Def (e@UnionMax (a, b)) =>
+				new UnionViewMax (compile (a).asMaterialized, compile (b).asMaterialized, false)
+
+			case Def (e@Intersection (a, b)) =>
+				new IntersectionView (compile (a).asMaterialized, compile (b).asMaterialized, false)
+
+			case Def (e@Difference (a, b)) =>
+				new DifferenceView (compile (a), compile (b), false)
 
             case _ => super.compile (query)
         }

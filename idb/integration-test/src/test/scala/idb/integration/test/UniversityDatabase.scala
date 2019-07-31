@@ -33,7 +33,8 @@
 package idb.integration.test
 
 import idb.schema.university._
-import idb.{Relation, BagTable, Table}
+import idb.syntax.iql.IR
+import idb.{BagTable, Relation, Table}
 
 /**
  *
@@ -44,7 +45,7 @@ import idb.{Relation, BagTable, Table}
 object UniversityDatabase
     extends idb.schema.university.UniversitySchema
 {
-    val IR = idb.syntax.iql.IR
+    val IR = IR
 
     val bookRecommendations: Table[BookRecommendation] = BagTable.empty
 
@@ -62,4 +63,7 @@ object UniversityDatabase
 
     val prerequisites: Table[CoursePrerequisite] = BagTable.empty
 
+
 }
+
+

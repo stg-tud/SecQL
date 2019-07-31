@@ -32,6 +32,9 @@
  */
 package idb
 
+
+import java.io.PrintStream
+
 import idb.observer.Observable
 import idb.collections.impl.{MaterializedBag, MaterializedSet}
 
@@ -52,6 +55,7 @@ import idb.collections.impl.{MaterializedBag, MaterializedSet}
  */
 trait Relation[+V]
     extends Observable[V]
+    with Serializable
 {
     /**
      * Runtime information whether a compiled query is a set or a bag
@@ -60,19 +64,8 @@ trait Relation[+V]
 
     def foreach[T] (f: (V) => T)
 
-    /**
-     * Each view must be able to
-     * materialize it's content from the underlying
-     * views.
-     * The laziness allows a query to be set up
-     * on relations (tables) that are already filled.
-     * The lazy initialization must be performed prior to processing the
-     * first add/delete/update events or foreach calls.
-     */
-    protected def lazyInitialize ()
 
-
-    protected def children: Seq[Relation[_]]
+    def children: Seq[Relation[_]]
 
     /**
      * Converts the data of the view into a list representation.
@@ -80,11 +73,7 @@ trait Relation[+V]
      */
     def asList: List[V] = {
         var l: List[V] = List ()
-        foreach (v =>
-        {
-            l = l :+ v
-        }
-        )
+        foreach (v => l = l :+ v)
         l
     }
 
@@ -97,13 +86,30 @@ trait Relation[+V]
     protected lazy val materializedRelation: MaterializedView[V] = {
         if (isSet) {
             new MaterializedSet[V](this)
-        }
-        else
-        {
+        } else {
             new MaterializedBag[V](this)
         }
     }
 
+    private def resetChildren(): Unit = {
+        children.foreach(_.reset())
+    }
+
+    def reset(): Unit = {
+        resetChildren()
+        resetInternal()
+    }
+
+    protected[idb] def resetInternal()
+
+    def print(out : PrintStream = System.out): Unit = {
+        printInternal(out)
+    }
+
+    protected[idb] def printInternal(out : PrintStream)(implicit prefix: String = " "): Unit
+    protected[idb] def printNested(out : PrintStream, rel: Relation[_])(implicit prefix: String): Unit = {
+	    rel.printInternal(out)(prefix + "  ")
+    }
 
 }
 

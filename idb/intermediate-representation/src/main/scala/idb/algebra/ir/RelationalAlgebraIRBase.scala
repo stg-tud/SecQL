@@ -32,8 +32,12 @@
  */
 package idb.algebra.ir
 
+
 import idb.algebra.base.RelationalAlgebraBase
-import idb.annotations.LocalIncrement
+import idb.algebra.exceptions.NoServerAvailableException
+import idb.query._
+import idb.query.taint.Taint
+
 import scala.language.higherKinds
 import scala.virtualization.lms.common.BaseExp
 import scala.language.implicitConversions
@@ -50,22 +54,23 @@ trait RelationalAlgebraIRBase
 {
     type Query[Domain] = QueryBase[Domain]
 
-    trait QueryBaseOps
-    {
+    trait QueryBaseOps {
+	    var node : Option[Host] = None
 
         def isSet: Boolean
-
-        def isIncrementLocal: Boolean
-
-        /**
-         * A query is materialized, if the elements of the underlying relation are stored and can be accessed by
-         * foreach.
-         * @return True, if the query is materialized.
-         */
-        def isMaterialized: Boolean
+ 		def host : Host
     }
 
-    abstract class QueryBase[+Domain: Manifest] extends QueryBaseOps
+    abstract class QueryBase[+Domain: Manifest] extends QueryBaseOps {
+
+    }
+
+	implicit def repToQueryBaseOps(r : Rep[Query[_]]) : QueryBaseOps = {
+		r match {
+			case e : QueryBaseOps => e
+			case Def ( d ) => d.asInstanceOf[QueryBaseOps]
+		}
+	}
 
     def domainOf[T] (relation: Rep[Query[T]]): Manifest[Any] =
         relation.tp.typeArguments (0).asInstanceOf[Manifest[Any]]
@@ -74,67 +79,84 @@ trait RelationalAlgebraIRBase
         relation.tp.typeArguments (0).asInstanceOf[Manifest[T]]
 
 
-    case class QueryTable[Domain] (
-        table: Table[Domain],
-        isSet: Boolean = false,
-        isIncrementLocal: Boolean = false,
-        isMaterialized: Boolean = false
+	case class QueryTable[Domain] (
+		table: Table[Domain],
+		isSet: Boolean = false,
+		taint : Taint,
+		host : Host
     )
             (implicit mDom: Manifest[Domain], mRel: Manifest[Table[Domain]])
-        extends Exp[Query[Domain]] with QueryBaseOps
+        extends Exp[Query[Domain]] with QueryBaseOps {
+	}
 
-    case class QueryRelation[Domain] (
-        table: Relation[Domain],
-        isSet: Boolean = false,
-        isIncrementLocal: Boolean = false,
-        isMaterialized: Boolean = false
-    )
-            (implicit mDom: Manifest[Domain], mRel: Manifest[Relation[Domain]])
-        extends Exp[Query[Domain]] with QueryBaseOps
+	case class QueryRelation[Domain] (
+		relation: Relation[Domain],
+		isSet: Boolean = false,
+		taint : Taint,
+		host : Host
+	)(implicit mDom: Manifest[Domain], mRel: Manifest[Relation[Domain]])
+        extends Exp[Query[Domain]] with QueryBaseOps {
+	}
 
 	case class Materialize[Domain : Manifest] (
 	  relation : Rep[Query[Domain]]
 	) extends Def[Query[Domain]] with QueryBaseOps {
 		def isMaterialized: Boolean = true //Materialization is always materialized
 		def isSet = false
-		def isIncrementLocal = false
+		def host = relation.host
 	}
 
-
-    protected def isIncrementLocal[Domain] (m: Manifest[Domain]) = {
-        m.runtimeClass.getAnnotation (classOf[LocalIncrement]) != null
-    }
+	case class Root[Domain : Manifest] (
+		relation : Rep[Query[Domain]],
+		host : Host
+	) extends Def[Query[Domain]] with QueryBaseOps {
+		def isSet = relation.isSet
+	}
 
     /**
      * Wraps an table as a leaf in the query tree
      */
-    override def table[Domain] (table: Table[Domain], isSet: Boolean = false)(
+    override def table[Domain](table: Table[Domain], isSet: Boolean = false, taint : Taint = Taint.NO_TAINT, host : Host = Host.local)(
         implicit mDom: Manifest[Domain],
-        mRel: Manifest[Table[Domain]]
-    ): Rep[Query[Domain]] =
-        QueryTable (table, isSet, isIncrementLocal (mDom))
-
+        mRel: Manifest[Table[Domain]],
+		env : QueryEnvironment
+    ): Rep[Query[Domain]] = {
+		val t = QueryTable (
+			table,
+			isSet = isSet,
+			taint = taint,
+			host = host
+		)
+		t
+	}
 
     /**
      * Wraps a compiled relation again as a leaf in the query tree
      */
-    override def relation[Domain] (relation: Relation[Domain], isSet: Boolean = false)(
+    override def relation[Domain](relation: Relation[Domain], isSet: Boolean = false, taint : Taint = Taint.NO_TAINT, host : Host = Host.local)(
         implicit mDom: Manifest[Domain],
-        mRel: Manifest[Relation[Domain]]
-    ): Rep[Query[Domain]] =
-        QueryRelation (relation, isSet, isIncrementLocal (mDom))
+        mRel: Manifest[Relation[Domain]],
+		env : QueryEnvironment
+    ): Rep[Query[Domain]] = {
+ 		val t = QueryRelation (
+			relation,
+			isSet = isSet,
+			taint = taint,
+			host = host
+		)
+		t
+	}
 
 	override def materialize[Domain : Manifest] (
 		relation : Rep[Query[Domain]]
-	): Rep[Query[Domain]] =
+	)(implicit env : QueryEnvironment) : Rep[Query[Domain]] =
 		Materialize(relation)
 
-	implicit def repToQueryBaseOps(r : Rep[Query[_]]) : QueryBaseOps = {
-		r match {
-			case e : QueryBaseOps => e
-			case Def ( d ) => d.asInstanceOf[QueryBaseOps]
-		}
-	}
+	override def root[Domain : Manifest] (
+		relation : Rep[Query[Domain]],
+		host : Host
+	)(implicit env : QueryEnvironment): Rep[Query[Domain]] =
+		Root(relation, host)
 
 
 }

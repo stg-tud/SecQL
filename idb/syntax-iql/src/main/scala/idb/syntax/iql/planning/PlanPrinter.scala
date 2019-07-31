@@ -32,8 +32,11 @@
  */
 package idb.syntax.iql.planning
 
-import scala.virtualization.lms.common.{ScalaGenTupledFunctions, ScalaGenStruct, ScalaCodeGenPkg}
+import idb.algebra
+
+import scala.virtualization.lms.common.{ScalaCodeGenPkg, ScalaGenStruct, ScalaGenTupledFunctions}
 import idb.algebra.print.RelationalAlgebraPrintPlan
+import idb.syntax.iql
 
 
 /**
@@ -46,7 +49,7 @@ object PlanPrinter
     with ScalaGenTupledFunctions
     with RelationalAlgebraPrintPlan
 {
-    override val IR  = idb.syntax.iql.IR
+    override val IR  = iql.IR
 
     def apply(x: IR.Exp[Any]): String = quote(x)
 }

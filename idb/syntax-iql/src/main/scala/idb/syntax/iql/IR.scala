@@ -32,16 +32,12 @@
  */
 package idb.syntax.iql
 
+import idb.algebra._
 import idb.algebra.compiler.RelationalAlgebraSAEBinding
-import idb.lms.extensions.ScalaOpsExpOptExtensions
-import scala.language.implicitConversions
-import scala.virtualization.lms.common._
-import idb.algebra.{RelationalAlgebraIRFusionPackage, RelationalAlgebraIROperatorsPackage, RelationalAlgebraIRNormalizePackage, RelationalAlgebraIROptPackage}
-import idb.lms.extensions.equivalence.{StructExpAlphaEquivalence, TupledFunctionsExpAlphaEquivalence}
+import idb.lms.extensions.ScalaOpsPkgExpExtensions
 import idb.lms.extensions.lifiting.LiftEverything
-import idb.algebra.print.RelationalAlgebraPrintPlan
-import idb.algebra.ir.{RelationalAlgebraIRSetTheoryOperators, RelationalAlgebraIRBasicOperators}
-import idb.lms.extensions.functions.TupledFunctionsExpDynamicLambda
+
+import scala.language.implicitConversions
 
 
 /**
@@ -54,19 +50,22 @@ import idb.lms.extensions.functions.TupledFunctionsExpDynamicLambda
  *
  * @author Ralf Mitschke
  */
-object IR
-    extends ScalaOpsExpOptExtensions
+case object IR
+    extends ScalaOpsPkgExpExtensions
     with RelationalAlgebraIROperatorsPackage
 	with RelationalAlgebraIRFusionPackage
-    with RelationalAlgebraIROptPackage
+	with RelationalAlgebraIROptPackage
     with RelationalAlgebraIRNormalizePackage
-    with TupledFunctionsExpDynamicLambda
+    with RelationalAlgebraIREssentialsPackage
     with RelationalAlgebraSAEBinding
-    with StructExpAlphaEquivalence
-    with TupledFunctionsExpAlphaEquivalence
-    with StaticDataExp
     with LiftEverything
 {
-    type SubQuery[+T] = IQL_SUB_QUERY[T]
+
+	override type SubQuery[+T] = IQL_SUB_QUERY[T]
+
+	@SerialVersionUID(-865432132L)
+	abstract class Def[+T] extends Serializable { // operations (composite)
+		override final lazy val hashCode = scala.runtime.ScalaRunTime._hashCode(this.asInstanceOf[Product])
+	}
 
 }

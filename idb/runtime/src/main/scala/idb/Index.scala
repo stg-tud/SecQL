@@ -32,7 +32,9 @@
  */
 package idb
 
-import idb.observer.{NotifyObservers, Observer, Observable}
+import java.io.PrintStream
+
+import idb.observer.{NotifyObservers, Observable, Observer}
 
 
 /**
@@ -64,11 +66,8 @@ trait Index[K, V]
 
   def keyFunction: V => K
 
-  override def endTransaction() {
-    notify_endTransaction()
-  }
 
-  override protected def children = List(relation)
+  override def children = List(relation)
 
   override protected def childObservers(o: Observable[_]): Seq[Observer[_]] = {
     if (o == relation) {
@@ -94,15 +93,6 @@ trait Index[K, V]
             }
         }
     }    */
-
-  // an index is lazy isInitialized by calling build
-  def lazyInitialize() {
-    relation.foreach(
-      v => {
-        put(keyFunction(v), v)
-      }
-    )
-  }
 
   /**
    * Returns the size of the view in terms of elements.
@@ -174,4 +164,7 @@ trait Index[K, V]
     }
     notify_removedAll(kvs)
   }
+
+  override protected[idb] def printInternal(out : PrintStream)(implicit prefix: String = " "): Unit =
+    out.println(prefix + this)
 }

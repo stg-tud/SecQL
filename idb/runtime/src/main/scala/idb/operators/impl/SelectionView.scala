@@ -45,20 +45,16 @@ import idb.Relation
  *
  * @author Ralf Mitschke
  */
-class SelectionView[Domain](
-                             val relation: Relation[Domain],
-                             val filter: Domain => Boolean,
-                             val isSet: Boolean
-                             )
+case class SelectionView[Domain](
+	relation: Relation[Domain],
+	filter: Domain => Boolean,
+	isSet: Boolean
+)
   extends Selection[Domain]
   with Observer[Domain]
   with NotifyObservers[Domain] {
+
   relation addObserver this
-
-
-  protected def lazyInitialize() {
-    /* do nothing */
-  }
 
 
   override protected def childObservers(o: Observable[_]): Seq[Observer[_]] = {
@@ -68,8 +64,8 @@ class SelectionView[Domain](
     Nil
   }
 
-  override def endTransaction() {
-    notify_endTransaction()
+  override protected[idb] def resetInternal(): Unit = {
+
   }
 
   /**

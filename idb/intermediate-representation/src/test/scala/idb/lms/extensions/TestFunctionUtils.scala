@@ -32,13 +32,17 @@
  */
 package idb.lms.extensions
 
+
+import idb.query.taint._
+
 import scala.virtualization.lms.common._
 import org.junit.Test
+import org.junit.Ignore
 import org.junit.Assert._
 
 /**
  *
- * @author Ralf Mitschke
+ * @author Ralf Mitschke, Mirko Köhler
  */
 class TestFunctionUtils
     extends BaseFatExp
@@ -50,6 +54,7 @@ class TestFunctionUtils
     with BooleanOpsExp
     with LiftAll
     with FunctionUtils
+	with PrimitiveOpsExp
 {
 
     @Test
@@ -194,4 +199,166 @@ class TestFunctionUtils
         )
 
     }
+
+	@Test
+	def testReturnedParameterIndex1(): Unit = {
+		val f = (i : Rep[Int], j : Rep[Int]) => i
+
+		val func = (function: Rep[_ => _]) => function
+
+		assertEquals(
+			0,
+			returnedParameter (f)
+		)
+	}
+
+	@Test
+	def testReturnedParameterIndex2(): Unit = {
+		val f = (i : Rep[Int], j : Rep[Int]) => j
+
+		assertEquals(
+			1,
+			returnedParameter (f)
+		)
+	}
+
+	@Test
+	def testReturnedParameterIndex3(): Unit = {
+		val f = (i : Rep[Int], j : Rep[Int]) => i + j
+
+		assertEquals(
+			-1,
+			returnedParameter (f)
+		)
+	}
+
+	@Test
+	def testReturnedParameterIndex4(): Unit = {
+		val f = (i : Rep[Int], j : Rep[Int], k : Rep[Int], l : Rep[Int]) => k
+
+		assertEquals(
+			2,
+			returnedParameter (f)
+		)
+	}
+
+	@Test
+	def testReturnedParameterIndex5(): Unit = {
+		val f = (t : Rep[(Int, Int)]) => t._2
+
+		assertEquals(
+			1,
+			returnedParameter (f)
+		)
+	}
+
+	@Test
+	def testIsIdentity1(): Unit = {
+		val f = (i : Rep[Int]) => i
+
+		assertTrue(
+			isIdentity(f)
+		)
+	}
+
+
+
+	@Ignore //TODO: Should this even work?
+	@Test
+	def testIsIdentity2(): Unit = {
+		val f = (t : Rep[(Int, Int)]) => (t._1, t._2)
+
+		assertTrue(
+			isIdentity(f)
+		)
+	}
+
+	@Test
+	def testIsIdentity3(): Unit = {
+		val f = (t : Rep[(Int, Int)]) => (t._2, t._1)
+
+		assertFalse(
+			isIdentity(f)
+		)
+	}
+
+	@Test
+	def testIsIdentity4(): Unit = {
+		val f = (i : Rep[Int]) => 0
+
+		assertFalse(
+			isIdentity(f)
+		)
+	}
+
+
+
+	@Test
+	def testReturnsFromTuple2_1(): Unit = {
+		val f = (t : Rep[(Int, Int)]) => t._1
+
+		assertTrue (
+			returnsLeftOfTuple2(f)
+		)
+
+		assertFalse (
+			returnsRightOfTuple2(f)
+		)
+	}
+
+	@Test
+	def testReturnsFromTuple2_2(): Unit = {
+		val f = (t : Rep[(Int, Int)]) => t._2
+
+		assertFalse (
+			returnsLeftOfTuple2(f)
+		)
+
+		assertTrue (
+			returnsRightOfTuple2(f)
+		)
+	}
+
+	@Test
+	def testReturnsFromTuple2_3(): Unit = {
+		val f = (t : Rep[(Int, Int)]) => t
+
+		assertFalse (
+			returnsLeftOfTuple2(f)
+		)
+
+		assertFalse (
+			returnsRightOfTuple2(f)
+		)
+	}
+
+
+
+
+	@Test
+	def testDisjunctiveParameterEquality1(): Unit = {
+		val f = (i : Rep[Int], j : Rep[Int]) => i == j
+
+		assertTrue(
+			isDisjunctiveParameterEquality(f)
+		)
+	}
+
+	@Test
+	def testDisjunctiveParameterEquality2(): Unit = {
+		val f = (i : Rep[Int], j : Rep[Int]) => i + 1 == j
+
+		assertTrue(
+			isDisjunctiveParameterEquality(f)
+		)
+	}
+
+	@Test
+	def testDisjunctiveParameterEquality3(): Unit = {
+		val f = (i : Rep[Int], j : Rep[Int]) => i + j == 0
+
+		assertFalse(
+			isDisjunctiveParameterEquality(f)
+		)
+	}
 }

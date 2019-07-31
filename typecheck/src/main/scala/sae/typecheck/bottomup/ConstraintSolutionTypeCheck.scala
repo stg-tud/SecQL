@@ -80,8 +80,12 @@ object ConstraintSolutionTypeCheck extends TypeCheck {
         val (t, sol, reqs, fresh) = sub(0)
 
         val X = TVar(tick('X$Abs, fresh))
-        val (xreqs, otherReqs) = reqs.partition{case VarRequirement(`x`, _) => true; case _ => false}
-        val xcons = xreqs map {case VarRequirement(_, t) => EqConstraint(X, t.subst(sol._1))}
+        val ((otherReqs, xcons), time) = Util.timed {
+          val (xreqs, otherReqs) = reqs.partition { case VarRequirement(`x`, _) => true; case _ => false}
+          val xcons = xreqs map { case VarRequirement(_, t) => EqConstraint(X, t.subst(sol._1))}
+          (otherReqs, xcons)
+        }
+        Constraint.computeReqsTime += time
         val fsol = extendSolution(sol, xcons)
         (TFun(X, t).subst(fsol._1), fsol, otherReqs, fresh + X.x)
       case If0 =>
@@ -122,46 +126,6 @@ object ConstraintSolutionTypeCheck extends TypeCheck {
   }
 
 
-  val constraints = WITH.RECURSIVE[ConstraintSolutionTuple] (constraints =>
-      (SELECT ((e: Rep[ExpTuple]) => id(e) -> typecheckStepRep ((id(e), kind(e), lits(e), Seq())))
-       FROM Exp.table // 0-ary
-       WHERE (e => subseq(e).length == 0))
-    UNION ALL (
-      (SELECT ((e: Rep[ExpTuple], t1: Rep[ConstraintSolutionTuple]) => id(e) -> typecheckStepRep ((id(e), kind(e), lits(e), Seq(t1._2))))
-       FROM (Exp.table, constraints) // 1-ary
-       WHERE ((e,t1) => subseq(e).length == 1
-                    AND subseq(e)(0) == t1._1))
-    UNION ALL
-      (SELECT ((et1: Rep[(ExpTuple, ConstraintSolutionTuple)], t2: Rep[ConstraintSolutionTuple]) => {
-                 val e = et1._1
-                 val t1 = et1._2
-                 id(e) -> typecheckStepRep ((id(e), kind(e), lits(e), Seq(t1._2, t2._2)))
-               })
-          FROM (SELECT ((e: Rep[ExpTuple], t1: Rep[ConstraintSolutionTuple]) => (e, t1))
-                FROM (Exp.table, constraints)
-                WHERE ((e, t1) => subseq(e).length == 2 AND subseq(e)(0) == t1._1),
-                constraints) // 2-ary
-          WHERE ((et1,t2) => subseq(et1._1)(1) == t2._1))
-          UNION ALL
-            (SELECT ((et1t2: Rep[(ExpTuple,ConstraintSolutionTuple,ConstraintSolutionTuple)], t3: Rep[ConstraintSolutionTuple]) => {
-                       val e = et1t2._1
-                       val t1 = et1t2._2
-                       val t2 = et1t2._3
-                       id(e) -> typecheckStepRep ((id(e), kind(e), lits(e), Seq(t1._2, t2._2, t3._2)))
-                     })
-            FROM (SELECT ((et1: Rep[(ExpTuple, ConstraintSolutionTuple)], t2: Rep[ConstraintSolutionTuple]) => (et1._1, et1._2, t2))
-                  FROM(SELECT ((e: Rep[ExpTuple], t1: Rep[ConstraintSolutionTuple]) => (e, t1))
-                       FROM (Exp.table, constraints)
-                       WHERE ((e, t1) => subseq(e).length == 3 AND subseq(e)(0) == t1._1),
-                       constraints)
-                  WHERE  ((et1, t2) => subseq(et1._1)(1) == t2._1),
-                  constraints) // 3-ary
-             WHERE ((et1t2,t3) => subseq(et1t2._1)(2) == t3._1))
-
-    )
-  )
-
-
 //  val constraints = WITH.RECURSIVE[ConstraintSolutionTuple] (constraints =>
 //      (SELECT ((e: Rep[ExpTuple]) => id(e) -> typecheckStepRep ((id(e), kind(e), lits(e), Seq())))
 //       FROM Exp.table // 0-ary
@@ -172,22 +136,62 @@ object ConstraintSolutionTypeCheck extends TypeCheck {
 //       WHERE ((e,t1) => subseq(e).length == 1
 //                    AND subseq(e)(0) == t1._1))
 //    UNION ALL
-//      (SELECT ((e: Rep[ExpTuple], t1: Rep[ConstraintSolutionTuple], t2: Rep[ConstraintSolutionTuple]) => id(e) -> typecheckStepRep ((id(e), kind(e), lits(e), Seq(t1._2, t2._2))))
-//       FROM (Exp.table, constraints, constraints) // 2-ary
-//       WHERE ((e,t1,t2) => subseq(e).length == 2
-//                       AND subseq(e)(0) == t1._1
-//                       AND subseq(e)(1) == t2._1))
-//    UNION ALL
-//      (SELECT ((e: Rep[ExpTuple], t1: Rep[ConstraintSolutionTuple], t2: Rep[ConstraintSolutionTuple], t3: Rep[ConstraintSolutionTuple]) =>
-//             id(e) -> typecheckStepRep ((id(e), kind(e), lits(e), Seq(t1._2, t2._2, t3._2))))
-//       FROM (Exp.table, constraints, constraints, constraints) // 2-ary
-//       WHERE ((e,t1,t2,t3) => subseq(e).length == 3
-//                          AND subseq(e)(0) == t1._1
-//                          AND subseq(e)(1) == t2._1
-//                          AND subseq(e)(2) == t3._1))
+//      (SELECT ((et1: Rep[(ExpTuple, ConstraintSolutionTuple)], t2: Rep[ConstraintSolutionTuple]) => {
+//                 val e = et1._1
+//                 val t1 = et1._2
+//                 id(e) -> typecheckStepRep ((id(e), kind(e), lits(e), Seq(t1._2, t2._2)))
+//               })
+//          FROM (SELECT ((e: Rep[ExpTuple], t1: Rep[ConstraintSolutionTuple]) => (e, t1))
+//                FROM (Exp.table, constraints)
+//                WHERE ((e, t1) => subseq(e).length == 2 AND subseq(e)(0) == t1._1),
+//                constraints) // 2-ary
+//          WHERE ((et1,t2) => subseq(et1._1)(1) == t2._1))
+//          UNION ALL
+//            (SELECT ((et1t2: Rep[(ExpTuple,ConstraintSolutionTuple,ConstraintSolutionTuple)], t3: Rep[ConstraintSolutionTuple]) => {
+//                       val e = et1t2._1
+//                       val t1 = et1t2._2
+//                       val t2 = et1t2._3
+//                       id(e) -> typecheckStepRep ((id(e), kind(e), lits(e), Seq(t1._2, t2._2, t3._2)))
+//                     })
+//            FROM (SELECT ((et1: Rep[(ExpTuple, ConstraintSolutionTuple)], t2: Rep[ConstraintSolutionTuple]) => (et1._1, et1._2, t2))
+//                  FROM(SELECT ((e: Rep[ExpTuple], t1: Rep[ConstraintSolutionTuple]) => (e, t1))
+//                       FROM (Exp.table, constraints)
+//                       WHERE ((e, t1) => subseq(e).length == 3 AND subseq(e)(0) == t1._1),
+//                       constraints)
+//                  WHERE  ((et1, t2) => subseq(et1._1)(1) == t2._1),
+//                  constraints) // 3-ary
+//             WHERE ((et1t2,t3) => subseq(et1t2._1)(2) == t3._1))
 //
 //    )
 //  )
+
+
+  val constraints = WITH.RECURSIVE[ConstraintSolutionTuple] (constraints =>
+      (SELECT ((e: Rep[ExpTuple]) => id(e) -> typecheckStepRep ((id(e), kind(e), lits(e), Seq())))
+       FROM Exp.table // 0-ary
+       WHERE (e => subseq(e).length == 0))
+    UNION ALL (
+      (SELECT ((e: Rep[ExpTuple], t1: Rep[ConstraintSolutionTuple]) => id(e) -> typecheckStepRep ((id(e), kind(e), lits(e), Seq(t1._2))))
+       FROM (Exp.table, constraints) // 1-ary
+       WHERE ((e,t1) => subseq(e).length == 1
+                    AND subseq(e)(0) == t1._1))
+    UNION ALL
+      (SELECT ((e: Rep[ExpTuple], t1: Rep[ConstraintSolutionTuple], t2: Rep[ConstraintSolutionTuple]) => id(e) -> typecheckStepRep ((id(e), kind(e), lits(e), Seq(t1._2, t2._2))))
+       FROM (Exp.table, constraints, constraints) // 2-ary
+       WHERE ((e,t1,t2) => subseq(e).length == 2
+                       AND subseq(e)(0) == t1._1
+                       AND subseq(e)(1) == t2._1))
+    UNION ALL
+      (SELECT ((e: Rep[ExpTuple], t1: Rep[ConstraintSolutionTuple], t2: Rep[ConstraintSolutionTuple], t3: Rep[ConstraintSolutionTuple]) =>
+             id(e) -> typecheckStepRep ((id(e), kind(e), lits(e), Seq(t1._2, t2._2, t3._2))))
+       FROM (Exp.table, constraints, constraints, constraints) // 2-ary
+       WHERE ((e,t1,t2,t3) => subseq(e).length == 3
+                          AND subseq(e)(0) == t1._1
+                          AND subseq(e)(1) == t2._1
+                          AND subseq(e)(2) == t3._1))
+
+    )
+  )
 
   val solver = Solve[Constraint](x => x)()
   var lastConstraints = scala.Seq[Constraint]()
@@ -206,8 +210,8 @@ object ConstraintSolutionTypeCheck extends TypeCheck {
 
   val root = Root(constraints, staticData (rootTypeExtractor))
   def typecheck(e: Exp) = {
-    root.set(e)
-    root.Type
+    val fire = root.set(e)
+    () => {fire(); root.Type}
   }
 
   def typecheckIncremental(e: Exp) = {

@@ -1,0 +1,4 @@
+# Add entries to /etc/hosts, which enable DNS resolution during multi node execution
+# on single server node during local development
+127.0.0.1 server.company.i3ql
+127.0.0.1 server.hospital.i3ql

@@ -52,11 +52,7 @@ class WaitingTransactionalEquiJoinView[DomainA, DomainB, Range, Key](val left: R
 
     right addObserver RightObserver
 
-    override def children = List (left, right)
-
-	override def lazyInitialize() {
-
-	}
+    override def children() = List (left, right)
 
     override protected def childObservers(o: Observable[_]): Seq[Observer[_]] = {
         if (o == left) {
@@ -67,6 +63,9 @@ class WaitingTransactionalEquiJoinView[DomainA, DomainB, Range, Key](val left: R
         }
         Nil
     }
+
+    override protected[idb] def resetInternal(): Unit = ???
+
 
     /**
      * Applies f to all elements of the view.
@@ -141,23 +140,6 @@ class WaitingTransactionalEquiJoinView[DomainA, DomainB, Range, Key](val left: R
 
     object LeftObserver extends TransactionKeyValueObserver[Key, DomainA]
     {
-
-        override def endTransaction() {
-            // println (this + ".endTransaction() with " + observers)
-            // println ("waiting : " + !rightFinished)
-
-            leftFinished = true
-            if (rightFinished) {
-                doJoinAndCleanup ()
-
-                notify_endTransaction ()
-
-
-                leftFinished = false
-                rightFinished = false
-            }
-        }
-
         def keyFunc = leftKey
 
         override def toString: String = WaitingTransactionalEquiJoinView.this.toString + "$LeftObserver"
@@ -165,21 +147,6 @@ class WaitingTransactionalEquiJoinView[DomainA, DomainB, Range, Key](val left: R
 
     object RightObserver extends TransactionKeyValueObserver[Key, DomainB]
     {
-
-        override def endTransaction() {
-            //  println(this + ".endTransaction() with " + observers)
-            //  println("waiting : " + !leftFinished)
-
-            rightFinished = true
-            if (leftFinished) {
-                doJoinAndCleanup ()
-                notify_endTransaction ()
-
-                leftFinished = false
-                rightFinished = false
-            }
-        }
-
         def keyFunc = rightKey
 
         override def toString: String = WaitingTransactionalEquiJoinView.this.toString + "$RightObserver"

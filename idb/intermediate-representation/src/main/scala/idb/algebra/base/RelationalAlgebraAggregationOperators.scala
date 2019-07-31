@@ -32,6 +32,8 @@
  */
 package idb.algebra.base
 
+import idb.query.QueryEnvironment
+
 /**
  *
  * @author Ralf Mitschke
@@ -49,25 +51,8 @@ trait RelationalAlgebraAggregationOperators
 		removed : Rep[( (Domain, RangeB) ) => RangeB],
 		updated: Rep[( (Domain, Domain, RangeB) ) => RangeB],
 		convertKey : Rep[Key => RangeA],
-		convert : Rep[((RangeA, RangeB)) => Range]
-	): Rep[Query[Range]]
-
-	def aggregationSelfMaintainedWithoutGrouping[Domain : Manifest, Range : Manifest](
-		relation : Rep[Query[Domain]],
-		start : Range,
-		added : Rep[( (Domain, Range) ) => Range],
-		removed : Rep[( (Domain, Range) ) => Range],
-		updated: Rep[( (Domain, Domain, Range) ) => Range]
-	): Rep[Query[Range]]
-
-	def aggregationSelfMaintainedWithoutConvert[Domain : Manifest, Key : Manifest, Range : Manifest] (
-		relation: Rep[Query[Domain]],
-		grouping: Rep[Domain => Key],
-		start : Range,
-		added : Rep[((Domain, Range)) => Range],
-		removed : Rep[((Domain, Range)) => Range],
-		updated: Rep[((Domain, Domain, Range)) => Range]
-	): Rep[Query[Range]]
+		convert : Rep[((RangeA, RangeB, Domain)) => Range]
+	)(implicit env : QueryEnvironment): Rep[Query[Range]]
 
 	def aggregationNotSelfMaintained[Domain : Manifest, Key : Manifest, RangeA, RangeB, Range : Manifest](
 		relation : Rep[Query[Domain]],
@@ -77,29 +62,7 @@ trait RelationalAlgebraAggregationOperators
 		removed : Rep[( (Domain, RangeB, Seq[Domain]) ) => RangeB],
 		updated: Rep[( (Domain, Domain, RangeB, Seq[Domain]) ) => RangeB],
 		convertKey : Rep[Key => RangeA],
-		convert : Rep[((RangeA, RangeB)) => Range]
-	): Rep[Query[Range]]
-
-	def aggregationNotSelfMaintainedWithoutGrouping[Domain : Manifest, Range : Manifest](
-		relation : Rep[Query[Domain]],
-		start : Range,
-		added : Rep[( (Domain, Range, Seq[Domain]) ) => Range],
-		removed : Rep[( (Domain, Range, Seq[Domain]) ) => Range],
-		updated: Rep[( (Domain, Domain, Range, Seq[Domain]) ) => Range]
-	): Rep[Query[Range]]
-
-	def aggregationNotSelfMaintainedWithoutConvert[Domain : Manifest, Key : Manifest, Range : Manifest] (
-		relation: Rep[Query[Domain]],
-		grouping: Rep[Domain => Key],
-		start : Range,
-		added : Rep[( (Domain, Range, Seq[Domain]) ) => Range],
-		removed : Rep[( (Domain, Range, Seq[Domain]) ) => Range],
-		updated: Rep[( (Domain, Domain, Range, Seq[Domain]) ) => Range]
-	): Rep[Query[Range]]
-
-	def grouping[Domain : Manifest, Result : Manifest] (
-		relation : Rep[Query[Domain]],
-		grouping : Rep[Domain => Result]
-	): Rep[Query[Result]]
+		convert : Rep[((RangeA, RangeB, Domain)) => Range]
+	)(implicit env : QueryEnvironment): Rep[Query[Range]]
 
 }

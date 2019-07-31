@@ -75,11 +75,9 @@ class NaiveTransitiveClosureView[Edge, Vertex](val source: Relation[Edge],
     // (v,u)(v,w)
     // (v,x)
 
-    lazyInitialize ()
 
-    override def endTransaction() {
-        notify_endTransaction()
-    }
+    override protected[idb] def resetInternal(): Unit = ???
+
 
     override protected def childObservers(o: Observable[_]): Seq[Observer[_]] = {
         if (o == source) {
@@ -142,12 +140,6 @@ class NaiveTransitiveClosureView[Edge, Vertex](val source: Relation[Edge],
         })
     }
 
-
-	override  def lazyInitialize() {
-        source.foreach (
-            x => internal_add(x)
-        )
-    }
 
 
     private def transitiveClosureGet(v: Vertex) = {

@@ -66,7 +66,10 @@ class ThreeWayJoinView[DomainA, DomainB, DomainC, Range, KeyA, KeyC](val left: R
 
   rightIndex addObserver RightObserver
 
-  override def children = List(leftIndex, middleToLeftIndex, middleToRightIndex, rightIndex)
+  override def children() = List(leftIndex, middleToLeftIndex, middleToRightIndex, rightIndex)
+
+  override protected[idb] def resetInternal(): Unit = ???
+
 
   override protected def childObservers(o: Observable[_]): Seq[Observer[_]] = {
     if (o == leftIndex) {
@@ -82,10 +85,6 @@ class ThreeWayJoinView[DomainA, DomainB, DomainC, Range, KeyA, KeyC](val left: R
       return List(RightObserver)
     }
     Nil
-  }
-
-  override def lazyInitialize() {
-
   }
 
   /**
@@ -166,10 +165,6 @@ class ThreeWayJoinView[DomainA, DomainB, DomainC, Range, KeyA, KeyC](val left: R
 
   object LeftObserver extends Observer[(KeyA, DomainA)] {
 
-    override def endTransaction() {
-      notify_endTransaction()
-    }
-
     // update operations on left relation
     def updated(oldKV: (KeyA, DomainA), newKV: (KeyA, DomainA)) {
       throw new UnsupportedOperationException
@@ -198,10 +193,6 @@ class ThreeWayJoinView[DomainA, DomainB, DomainC, Range, KeyA, KeyC](val left: R
 
   object MiddleToLeftObserver extends Observer[(KeyA, DomainB)] {
 
-    override def endTransaction() {
-      notify_endTransaction()
-    }
-
     def updated(oldKV: (KeyA, DomainB), newKV: (KeyA, DomainB)) {
       throw new UnsupportedOperationException
     }
@@ -229,9 +220,6 @@ class ThreeWayJoinView[DomainA, DomainB, DomainC, Range, KeyA, KeyC](val left: R
 
   object MiddleToRightObserver extends Observer[(KeyC, DomainB)] {
 
-    override def endTransaction() {
-      notify_endTransaction()
-    }
 
     def updated(oldKV: (KeyC, DomainB), newKV: (KeyC, DomainB)) {
       throw new UnsupportedOperationException
@@ -260,10 +248,6 @@ class ThreeWayJoinView[DomainA, DomainB, DomainC, Range, KeyA, KeyC](val left: R
 
 
   object RightObserver extends Observer[(KeyC, DomainC)] {
-
-    override def endTransaction() {
-      notify_endTransaction()
-    }
 
     def updated(oldKV: (KeyC, DomainC), newKV: (KeyC, DomainC)) {
       throw new UnsupportedOperationException

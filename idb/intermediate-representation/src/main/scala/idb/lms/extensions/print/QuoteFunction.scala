@@ -34,7 +34,8 @@ package idb.lms.extensions.print
 
 import scala.virtualization.lms.common._
 import java.io.{PrintWriter, StringWriter}
-import idb.lms.extensions.FunctionUtils
+
+import idb.lms.extensions.{FunctionUtils, ScalaCodeGenPkgExtensions, ScalaOpsPkgExpExtensions}
 import idb.lms.extensions.operations._
 
 /**
@@ -42,19 +43,22 @@ import idb.lms.extensions.operations._
  * @author Ralf Mitschke
  */
 trait QuoteFunction
-    extends ScalaCodeGenPkg
-    with ScalaGenStruct
-    with ScalaGenStaticData
-    with ScalaGenOptionOps
-    with ScalaGenStringOpsExt
-    with ScalaGenSeqOpsExt
-    with ScalaGenTupledFunctions
+    extends ScalaCodeGenPkgExtensions
     with CodeGenIndent
 {
 
-    override val IR: ScalaOpsPkgExp with StructExp with StaticDataExp with OptionOpsExp with StringOpsExpExt with SeqOpsExpExt with TupledFunctionsExp  with FunctionUtils
+    override val IR: ScalaOpsPkgExpExtensions with FunctionUtils
 
     import IR._
+
+    def quoteBlock[A] (b : Block[A]): String = {
+        val writer = new StringWriter ()
+        stream = new PrintWriter (writer)
+        emitBlock(b)
+        stream.close ()
+        writer.toString
+    }
+
 
     def quoteFunction[A, B] (f: Exp[A => B]): String = {
         val writer = new StringWriter ()

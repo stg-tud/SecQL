@@ -32,7 +32,10 @@
  */
 package idb.algebra.ir
 
-import idb.algebra.base.{RelationalAlgebraSetTheoryOperators, RelationalAlgebraBasicOperators}
+import idb.algebra.base.{RelationalAlgebraBasicOperators, RelationalAlgebraSetTheoryOperators}
+import idb.algebra.exceptions.NonMatchingHostsException
+import idb.query.taint.Taint
+import idb.query.QueryEnvironment
 
 
 /**
@@ -52,9 +55,13 @@ trait RelationalAlgebraIRSetTheoryOperators
         val mDomB = implicitly[Manifest[DomainB]]
         val mRan = implicitly[Manifest[Range]]
 
-		def isMaterialized: Boolean = relationA.isMaterialized && relationB.isMaterialized
 		def isSet = false
-		def isIncrementLocal = relationA.isIncrementLocal && relationB.isIncrementLocal
+		override def host = {
+			if (relationA.host != relationB.host)
+				throw new NonMatchingHostsException(relationA.host, relationB.host)
+			relationA.host
+		}
+
     }
 
     case class UnionMax[DomainA <: Range : Manifest, DomainB <: Range : Manifest, Range: Manifest] (
@@ -65,54 +72,61 @@ trait RelationalAlgebraIRSetTheoryOperators
         val mDomB = implicitly[Manifest[DomainB]]
         val mRan = implicitly[Manifest[Range]]
 
-		def isMaterialized: Boolean = relationA.isMaterialized && relationB.isMaterialized && !isIncrementLocal
 		def isSet = false
-		def isIncrementLocal = relationA.isIncrementLocal && relationB.isIncrementLocal
+		override def host = {
+			if (relationA.host != relationB.host)
+				throw new NonMatchingHostsException(relationA.host, relationB.host)
+			relationA.host
+		}
     }
 
     case class Intersection[Domain: Manifest] (
         var relationA: Rep[Query[Domain]],
         var relationB: Rep[Query[Domain]]
     ) extends Def[Query[Domain]] with QueryBaseOps {
-
-		def isMaterialized: Boolean = relationA.isMaterialized && relationB.isMaterialized && !isIncrementLocal
 		def isSet = false
-		def isIncrementLocal = relationA.isIncrementLocal && relationB.isIncrementLocal
+		override def host = {
+			if (relationA.host != relationB.host)
+				throw new NonMatchingHostsException(relationA.host, relationB.host)
+			relationA.host
+		}
 	}
 
     case class Difference[Domain: Manifest] (
         var relationA: Rep[Query[Domain]],
         var relationB: Rep[Query[Domain]]
     ) extends Def[Query[Domain]] with QueryBaseOps {
-
-		def isMaterialized: Boolean = !isIncrementLocal //Difference implements foreach
 		def isSet = false
-		def isIncrementLocal = relationA.isIncrementLocal && relationB.isIncrementLocal
+		override def host = {
+			if (relationA.host != relationB.host)
+				throw new NonMatchingHostsException(relationA.host, relationB.host)
+			relationA.host
+		}
 	}
 
 
     def unionAdd[DomainA <: Range : Manifest, DomainB <: Range : Manifest, Range: Manifest] (
         relationA: Rep[Query[DomainA]],
         relationB: Rep[Query[DomainB]]
-    ): Rep[Query[Range]] =
+    )(implicit env : QueryEnvironment): Rep[Query[Range]] =
         UnionAdd (relationA, relationB)
 
     def unionMax[DomainA <: Range : Manifest, DomainB <: Range : Manifest, Range: Manifest] (
         relationA: Rep[Query[DomainA]],
         relationB: Rep[Query[DomainB]]
-    ): Rep[Query[Range]] =
+    )(implicit env : QueryEnvironment): Rep[Query[Range]] =
         UnionMax (relationA, relationB)
 
     def intersection[Domain: Manifest] (
         relationA: Rep[Query[Domain]],
         relationB: Rep[Query[Domain]]
-    ): Rep[Query[Domain]] =
+    )(implicit env : QueryEnvironment): Rep[Query[Domain]] =
         Intersection (relationA, relationB)
 
     def difference[Domain: Manifest] (
         relationA: Rep[Query[Domain]],
         relationB: Rep[Query[Domain]]
-    ): Rep[Query[Domain]] =
+    )(implicit env : QueryEnvironment): Rep[Query[Domain]] =
         Difference (relationA, relationB)
 
 

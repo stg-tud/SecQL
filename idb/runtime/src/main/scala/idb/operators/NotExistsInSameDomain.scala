@@ -1,6 +1,8 @@
 package idb.operators
 
-import idb.{View, MaterializedView, Relation}
+import java.io.PrintStream
+
+import idb.{MaterializedView, Relation, View}
 
 
 /**
@@ -22,7 +24,15 @@ trait NotExistsInSameDomain[Domain]
 
     def right: MaterializedView[Domain]
 
-    override protected def children = List (left, right)
+    override def children = List (left, right)
+
+    override protected[idb] def printInternal(out : PrintStream)(implicit prefix: String = " "): Unit = {
+        out.println(prefix + s"NotExistsInSameDomain(")
+        printNested(out, left)
+        printNested(out, right)
+        out.println(prefix + ")")
+    }
+
 }
 
 

@@ -1,6 +1,8 @@
 package idb.operators
 
-import idb.{View, Relation}
+import java.io.PrintStream
+
+import idb.{Relation, View}
 
 /**
  * A join based on equality between elements in the underlying relations.
@@ -25,6 +27,13 @@ trait EquiJoin[DomainA, DomainB, Range, Key]
     def projection: (DomainA, DomainB) => Range
 
 	override def children = List(left,right)
+
+    override protected[idb] def printInternal(out : PrintStream)(implicit prefix: String = " "): Unit = {
+        out.println(prefix + s"EquiJoin(leftKey=$leftKey, rightKey=$rightKey,")
+        printNested(out, left)
+        printNested(out, right)
+        out.println(prefix + ")")
+    }
 
 }
 

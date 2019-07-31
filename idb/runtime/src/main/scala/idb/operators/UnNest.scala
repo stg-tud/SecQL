@@ -32,7 +32,9 @@
  */
 package idb.operators
 
-import idb.{View, Relation}
+import java.io.PrintStream
+
+import idb.{Relation, View}
 
 
 trait UnNest[Domain, Range]
@@ -42,8 +44,13 @@ trait UnNest[Domain, Range]
 
     def unNestFunction: Domain => Traversable[Range]
 
-    override protected def children = List (relation)
+    override def children = List (relation)
 
+    override protected[idb] def printInternal(out : PrintStream)(implicit prefix: String = " "): Unit = {
+        out.println(prefix + s"UnNest($unNestFunction,")
+        printNested(out, relation)
+        out.println(prefix + ")")
+    }
 }
 
 

@@ -1,11 +1,12 @@
 package idb.integration.test.operators
 
-import idb.syntax.iql._
+import idb.algebra
+import idb.query.QueryEnvironment
+import idb.syntax.iql.{IR, _}
 import org.junit.Assert._
 import org.hamcrest.CoreMatchers._
 import org.junit.Test
 import idb.schema.university.{Registration, Student}
-import idb.syntax.iql.IR._
 import idb.algebra.print.RelationalAlgebraPrintPlan
 import idb.integration.test.UniversityTestData
 import idb.integration.test.UniversityDatabase._
@@ -19,14 +20,16 @@ import idb.schema.university.Registration
  *
  * @author Mirko Köhler
  */
-class TestEquiJoin { //extends UniversityTestData with RelationalAlgebraPrintPlan {
-/*
-	val IR = idb.syntax.iql.IR
+class TestEquiJoin extends UniversityTestData {
+
+	val IR = IR
 
 	val printQuery = true
 
 	@Test
 	def testQuery2 () {
+		implicit val env = QueryEnvironment.Local
+
 		//Initialize query
 		val queryUncompiled = plan(
 			SELECT (
@@ -38,7 +41,7 @@ class TestEquiJoin { //extends UniversityTestData with RelationalAlgebraPrintPla
 			)
 		)
 
-		if (printQuery)	Predef.println(quoteRelation(queryUncompiled))
+	//	if (printQuery)	Predef.println(quoteRelation(queryUncompiled))
 
 		val query = compile(queryUncompiled).asMaterialized
 
@@ -120,7 +123,7 @@ class TestEquiJoin { //extends UniversityTestData with RelationalAlgebraPrintPla
 
 		//TODO How to handle updates of double elements?
 		//Update double element of left relation
-/*		students ~= (jackBlack, jackCarter)
+	/*	students ~= (jackBlack, jackCarter)
 		students.endTransaction()
 
 		assertThat (query contains (johnFields, johnTakesEise), is (true))
@@ -194,7 +197,7 @@ class TestEquiJoin { //extends UniversityTestData with RelationalAlgebraPrintPla
 		students += johnFields += sallyFields += jackBlack += janeDoe
 		students.endTransaction()
 
-		assertThat (query.size, is (0))     */
+		assertThat (query.size, is (0))  */
 
-	}   */
+	}
 }

@@ -35,14 +35,14 @@ package idb.lms.extensions.reduction
 import org.junit.{Ignore, Test}
 import scala.virtualization.lms.common.{ScalaOpsPkgExp, LiftAll}
 import org.junit.Assert._
-import idb.lms.extensions.ScalaOpsExpOptExtensions
+import idb.lms.extensions.ScalaOpsPkgExpOptExtensions
 
 /**
  *
  * @author Ralf Mitschke
  */
 class TestTupleOpsReduction
-    extends LiftAll with ScalaOpsExpOptExtensions with ScalaOpsPkgExp
+    extends LiftAll with ScalaOpsPkgExpOptExtensions with ScalaOpsPkgExp
 {
 
     @Test

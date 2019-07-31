@@ -1,14 +1,14 @@
 package idb.integration.test.operators
 
-import idb.syntax.iql._
+import idb.query.QueryEnvironment
+import idb.syntax.iql.{IR, _}
 import org.junit.Assert._
 import org.hamcrest.CoreMatchers._
-import org.junit.{Test, Before}
-import idb.syntax.iql.IR._
+import org.junit.{Before, Test}
 import idb.integration.test.UniversityTestData
 import idb.integration.test.UniversityDatabase._
 import idb.schema.university.Student
-import idb.{BagTable, MaterializedView}
+import idb.{BagTable, MaterializedView, algebra}
 
 
 /**
@@ -18,7 +18,7 @@ import idb.{BagTable, MaterializedView}
  */
 class TestSelfMaintainedAggregationGrouped extends AbstractStudentOperatorTest[Int] with UniversityTestData {
 
-	val IR = idb.syntax.iql.IR
+	val IR = IR
 
 	val printQuery = true
 
@@ -27,8 +27,12 @@ class TestSelfMaintainedAggregationGrouped extends AbstractStudentOperatorTest[I
 
 	@Before
 	def setUp() {
+		implicit val env = QueryEnvironment.Local
+
 		table = BagTable.empty[Student]
-		query = compile(SELECT (SUM ((s : Rep[Student]) => s.matriculationNumber)) FROM (table) GROUP BY ((s : Rep[Student]) => s.lastName))
+		query = compile (
+			SELECT (SUM ((s : Rep[Student]) => s.matriculationNumber)) FROM table GROUP BY ((s : Rep[Student]) => s.lastName)
+		)
 	}
 
 

@@ -32,6 +32,8 @@
  */
 package idb.collections.impl
 
+import java.io.PrintStream
+
 import idb.Relation
 import idb.observer.{Observable, Observer}
 import idb.collections.Bag
@@ -46,23 +48,13 @@ class MaterializedBag[V](val relation: Relation[V])
 
   relation addObserver this
 
-  def endTransaction() {
-    notify_endTransaction()
-  }
-
-  override protected def children = List(relation)
+  override def children() = List(relation)
 
   override protected def childObservers(o: Observable[_]): Seq[Observer[_]] = {
     if (o == relation) {
       return List(this)
     }
     Nil
-  }
-
-  def lazyInitialize() {
-    relation.foreach(
-      (v: V) => add_element(v)
-    )
   }
 
   def updated(oldV: V, newV: V) {
@@ -84,4 +76,12 @@ class MaterializedBag[V](val relation: Relation[V])
   def removedAll(vs: Seq[V]): Unit = {
     this --= vs
   }
+
+  override protected[idb] def printInternal(out : PrintStream)(implicit prefix: String = " "): Unit = {
+    out.println(prefix + s"MaterializedBag(")
+    printNested(out, relation)
+    out.println(prefix + ")")
+  }
+
+  override protected[idb] def resetInternal(): Unit = clear()
 }

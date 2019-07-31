@@ -32,7 +32,9 @@
  */
 package idb.operators
 
-import idb.{View, Relation}
+import java.io.PrintStream
+
+import idb.{Relation, View}
 
 
 /**
@@ -77,4 +79,11 @@ trait Projection[Domain, Range]
     def relation: Relation[Domain]
 
     def children = List (relation)
+
+    override protected[idb] def printInternal(out : PrintStream)(implicit prefix: String = " "): Unit = {
+        out.println(prefix + s"Projection($projection,")
+        printNested(out, relation)
+        out.println(prefix + ")")
+    }
+
 }

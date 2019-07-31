@@ -32,6 +32,7 @@
  */
 package idb.lms.extensions.reduction
 
+
 import scala.reflect.SourceContext
 import scala.virtualization.lms.common.{TupledFunctionsExp, IfThenElseExp, TupleOpsExp}
 import scala.language.implicitConversions
@@ -48,28 +49,33 @@ trait TupleOpsExpOptBetaReduction
 
     override implicit def make_tuple2[A: Manifest, B: Manifest] (
         t: (Exp[A], Exp[B])
-    )(implicit pos: SourceContext): Exp[(A, B)] =
+    )(implicit pos: SourceContext): Exp[(A, B)] = {
+
         t match {
-            case (Def (Tuple2Access1 (a)), Def (Tuple2Access2 (b)))
+            case (Def(Field(a, "_1")), Def(Field(b, "_2")))
                 if a == b => a.asInstanceOf[Exp[(A, B)]]
-            case _ => super.make_tuple2 (t)
+            case _ => super.make_tuple2(t)
         }
+    }
 
     override implicit def make_tuple3[A: Manifest, B: Manifest, C: Manifest] (
         t: (Exp[A], Exp[B], Exp[C])
     )(implicit pos: SourceContext): Exp[(A, B, C)] =
+    {
+
         t match {
-            case (Def (Tuple3Access1 (a)), Def (Tuple3Access2 (b)), Def (Tuple3Access3 (c)))
+            case (Def (Field (a, "_1")), Def (Field (b, "_2")), Def (Field (c, "_3")))
                 if a == b && a == c => a.asInstanceOf[Exp[(A, B, C)]]
             case _ => super.make_tuple3 (t)
         }
+    }
 
 
     override implicit def make_tuple4[A: Manifest, B: Manifest, C: Manifest, D: Manifest] (
         t: (Exp[A], Exp[B], Exp[C], Exp[D])
     )(implicit pos: SourceContext): Exp[(A, B, C, D)] =
         t match {
-            case (Def (Tuple4Access1 (a)), Def (Tuple4Access2 (b)), Def (Tuple4Access3 (c)), Def (Tuple4Access4 (d)))
+            case (Def (Field (a, "_1")), Def (Field (b, "_2")), Def (Field (c, "_3")), Def (Field (d, "_4")))
                 if a == b && a == c && a == d => a.asInstanceOf[Exp[(A, B, C, D)]]
             case _ => super.make_tuple4 (t)
         }
@@ -79,8 +85,8 @@ trait TupleOpsExpOptBetaReduction
     )(implicit pos: SourceContext
     ): Exp[(A, B, C, D, E)] =
         t match {
-            case (Def (Tuple5Access1 (a)), Def (Tuple5Access2 (b)), Def (Tuple5Access3 (c)), Def (
-            Tuple5Access4 (d)), Def (Tuple5Access5 (e)))
+            case (Def (Field (a, "_1")), Def (Field (b, "_2")), Def (Field (c, "_3")), Def (
+            Field (d, "_4")), Def (Field (e, "_5")))
                 if a == b && a == c && a == d && a == e => a.asInstanceOf[Exp[(A, B, C, D, E)]]
             case _ => super.make_tuple5 (t)
         }

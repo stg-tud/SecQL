@@ -32,12 +32,13 @@
  */
 package idb.integration.test
 
-import UniversityDatabase._
+import idb.integration.test.UniversityDatabase._
+import idb.query.QueryEnvironment
+import idb.schema.university.{Course, Student}
+import idb.syntax.iql.IR._
 import idb.syntax.iql._
 import org.junit.Assert._
-import org.junit.{Ignore, Test}
-import idb.schema.university.{Registration, Student, Course}
-import idb.syntax.iql.IR._
+import org.junit.Test
 
 
 /**
@@ -48,6 +49,8 @@ class TestAggregationOperators
 {
     @Test
 	def testCountStudents() {
+		implicit val env = QueryEnvironment.Local
+
 		val query = compile (
 			SELECT (COUNT (*)) FROM students GROUP BY ((s : Rep[Student]) => s.lastName)
 		).asMaterialized
@@ -61,18 +64,15 @@ class TestAggregationOperators
 		students += john += judy += jane += john2 += moe
 		students.endTransaction()
 
-		Predef.println("**********************************")
-		query.foreach(Predef.println)
-		Predef.println("**********************************")
-
-  		//TODO Fix this
-//		assertTrue(query.contains(2))
+		assertTrue(query.contains(2))
 		assertTrue(query.contains(3))
 
 	}
 
 	@Test
 	def testSumCreditPoints() {
+		implicit val env = QueryEnvironment.Local
+
 		val query = compile (
 			SELECT (
 				SUM (
@@ -94,6 +94,8 @@ class TestAggregationOperators
 
 	@Test
 	def testAggregateGroupCountWithGroup () {
+		implicit val env = QueryEnvironment.Local
+
 		val query = compile (
 			SELECT
 				((s: Rep[String]) => s, COUNT ((s : Rep[Student]) => s) )

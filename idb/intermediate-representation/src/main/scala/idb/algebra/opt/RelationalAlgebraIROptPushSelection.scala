@@ -35,6 +35,7 @@ package idb.algebra.opt
 import idb.algebra.ir.{RelationalAlgebraIRSetTheoryOperators, RelationalAlgebraIRBasicOperators}
 import idb.lms.extensions.functions.{TupledFunctionsExpDynamicLambda, FunctionsExpDynamicLambdaAlphaEquivalence}
 import idb.lms.extensions.{FunctionUtils, ExpressionUtils}
+import idb.query.QueryEnvironment
 import scala.virtualization.lms.common._
 
 /**
@@ -62,22 +63,22 @@ trait RelationalAlgebraIROptPushSelection
     override def selection[Domain: Manifest] (
         relation: Rep[Query[Domain]],
         function: Rep[Domain => Boolean]
-    ): Rep[Query[Domain]] = {
+    )(implicit env : QueryEnvironment): Rep[Query[Domain]] = {
         (relation match {
             // pushing over projections
             case Def (Projection (r, f)) => {
                 val pushedFunction = fun ((x: Exp[Any]) => function (f (x)))(
                     parameterType (f), manifest[Boolean])
-                projection (selection (r, pushedFunction)(domainOf (r)), f)
+                projection (selection (r, pushedFunction)(domainOf (r), env), f)
             }
             // pushing selections that only use their arguments partially over selections that need all arguments
             case Def (Selection (r, f)) if !freeVars (function).isEmpty && freeVars (f).isEmpty =>
-                selection (selection (r, function)(exactDomainOf (relation)), f)
+                selection (selection (r, function)(exactDomainOf (relation), env), f)
 
             // pushing selections that use equalities over selections that do not
             case Def (Selection (r, f)) if isDisjunctiveParameterEquality (
                 function) && !isDisjunctiveParameterEquality (f) =>
-                selection (selection (r, function)(exactDomainOf (relation)), f)
+                selection (selection (r, function)(exactDomainOf (relation), env), f)
 
             case Def (CrossProduct (a, b)) => {
                 pushedOverBinaryOperator (function) match {
@@ -85,21 +86,21 @@ trait RelationalAlgebraIROptPushSelection
                         super.selection (relation, function)
                     case (Some (f), None) =>
                         crossProduct (
-                            selection (a, f)(parameterType(f)),
+                            selection (a, f)(parameterType(f), env),
                             b
-                        )(domainOf (a), domainOf (b))
+                        )(domainOf (a), domainOf (b), env)
 
                     case (None, Some (f)) =>
                         crossProduct (
                             a,
-                            selection (b, f)(parameterType(f))
-                        )(domainOf (a), domainOf (b))
+                            selection (b, f)(parameterType(f), env)
+                        )(domainOf (a), domainOf (b), env)
 
                     case (Some (fa), Some (fb)) =>
                         crossProduct (
-                            selection (a, fa)(parameterType(fa)),
-                            selection (b, fb)(parameterType(fb))
-                        )(domainOf (a), domainOf (b))
+                            selection (a, fa)(parameterType(fa), env),
+                            selection (b, fb)(parameterType(fb), env)
+                        )(domainOf (a), domainOf (b), env)
                 }
             }
 
@@ -110,24 +111,24 @@ trait RelationalAlgebraIROptPushSelection
 
                     case (Some (f), None) =>
                         equiJoin (
-                            selection (a, f)(parameterType(f)),
+                            selection (a, f)(parameterType(f), env),
                             b,
                             l
-                        )(domainOf (a), domainOf (b))
+                        )(domainOf (a), domainOf (b), env)
 
                     case (None, Some (f)) =>
                         equiJoin (
                             a,
-                            selection (b, f)(parameterType(f)),
+                            selection (b, f)(parameterType(f), env),
                             l
-                        )(domainOf (a), domainOf (b))
+                        )(domainOf (a), domainOf (b), env)
 
                     case (Some (fa), Some (fb)) =>
                         equiJoin (
-                            selection (a, fa)(parameterType(fa)),
-                            selection (b, fb)(parameterType(fb)),
+                            selection (a, fa)(parameterType(fa), env),
+                            selection (b, fb)(parameterType(fb), env),
                             l
-                        )(domainOf (a), domainOf (b))
+                        )(domainOf (a), domainOf (b), env)
                 }
             }
 
@@ -155,7 +156,7 @@ trait RelationalAlgebraIROptPushSelection
     ): (Option[Rep[Any => Boolean]], Option[Rep[Any => Boolean]]) = {
         val symsInQuestion =
             parameter (function) match {
-                case UnboxedTuple (List (a, b)) =>
+                case UnboxedTuple (scala.List (a, b)) =>
                     scala.List (a, b)
 
                 // in case we have a function f(x:Tuple2[A,B]) we are looking for usage of only x._1 or x._2
@@ -172,27 +173,35 @@ trait RelationalAlgebraIROptPushSelection
             return (None, None)
         }
 
-    /*  println("---")
-      println(s"params $symsInQuestion")
-      println(s"free: $freeV")
-      println(printFun(function))    */
 
         // TODO Using symsInQuestion(i) below as parameter means that we can have x._1 and x._2 as a parameter.
         // We could change that.
         // However, there is no problem, since there is always a variable (i.e., a Sym) for x._1, i.e., y = x._1
         // Thus function application will replace the whole y.
+
         val functionBody = body (function)
+
+		val sym0 = symsInQuestion (0)
+		val sym1 = symsInQuestion (1)
+
+
         if (freeV.size == 2) {
-            return (
-                Some (dynamicLambda (symsInQuestion (0), functionBody)),
-                Some (dynamicLambda (symsInQuestion (1), functionBody))
-                )
+			val f1 = dynamicLambda (sym0, functionBody)
+			val f2 = dynamicLambda (sym1, functionBody)
+
+           return (Some (f1), Some (f2))
         }
 
         symsInQuestion.indexOf (freeV (0)) match {
-            case 0 => (None, Some (dynamicLambda (symsInQuestion (1), functionBody)))
-            case 1 => (Some (dynamicLambda (symsInQuestion (0), functionBody)), None)
+            case 0 =>
+				val f = dynamicLambda (sym1, functionBody)
+				return (None, Some (f))
+            case 1 =>
+				val f = dynamicLambda (sym0, functionBody)
+				return (Some (f), None)
         }
+
+		return (None, None)
     }
 
 

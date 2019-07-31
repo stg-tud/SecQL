@@ -32,6 +32,8 @@
  */
 package idb.algebra.base
 
+import idb.query.QueryEnvironment
+
 import scala.virtualization.lms.common.{TupleOps, Equal, TupledFunctions}
 
 /**
@@ -51,7 +53,7 @@ trait RelationalAlgebraDerivedOperators
     def naturalJoin[Domain: Manifest] (
         relationA: Rep[Query[Domain]],
         relationB: Rep[Query[Domain]]
-    ): Rep[Query[Domain]] =
+    )(implicit env : QueryEnvironment): Rep[Query[Domain]] =
         projection (
             selection (
                 crossProduct (relationA, relationB),
@@ -66,7 +68,7 @@ trait RelationalAlgebraDerivedOperators
         relationB: Rep[Query[DomainB]],
         keyA: Rep[DomainA => Any],
         keyB: Rep[DomainB => Any]
-    ): Rep[Query[DomainA]] =
+    )(implicit env : QueryEnvironment): Rep[Query[DomainA]] =
         projection (
             equiJoin (
                 relationA,
@@ -87,7 +89,7 @@ trait RelationalAlgebraDerivedOperators
         relationB: Rep[Query[DomainB]],
         keyA: Rep[DomainA => Any],
         keyB: Rep[DomainB => Any]
-    ): Rep[Query[DomainA]] =
+    )(implicit env : QueryEnvironment): Rep[Query[DomainA]] =
         difference (
             relationA,
             semiJoin (

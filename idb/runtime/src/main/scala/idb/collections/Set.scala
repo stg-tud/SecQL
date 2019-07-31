@@ -6,7 +6,7 @@ package idb.collections
 trait Set[V]
   extends
   Collection[V] {
-  private var data: java.util.HashSet[V] = new java.util.HashSet[V]()
+  private val data: java.util.HashSet[V] = new java.util.HashSet[V]()
 
   def isSet = true
 
@@ -14,13 +14,17 @@ trait Set[V]
 
   def size: Int = data.size
 
+  def clear() = {
+    data.clear()
+  }
+
   def add_element(v: V) {
     if (data.add(v))
       notify_added(v)
   }
 
   def add_elements(vs: Seq[V]) {
-    val added = vs.filter(data.add(_))
+    val added = vs.filter(data.add)
     notify_addedAll(added)
   }
 

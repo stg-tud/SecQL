@@ -32,6 +32,9 @@
  */
 package idb.syntax.iql.planning
 
+import idb.algebra
+import idb.query.QueryEnvironment
+import idb.syntax.iql
 import idb.syntax.iql._
 import idb.syntax.iql.impl._
 
@@ -44,11 +47,11 @@ import idb.syntax.iql.impl._
 object SubQueryToAlgebra
 {
 
-    val IR = idb.syntax.iql.IR
+    val IR = iql.IR
 
     import IR._
 
-    private def applyDistinct[Domain: Manifest] (query: Rep[Query[Domain]], asDistinct: Boolean) =
+    private def applyDistinct[Domain: Manifest] (query: Rep[Query[Domain]], asDistinct: Boolean)(implicit env : QueryEnvironment) =
         asDistinct match {
             case true => duplicateElimination (query)
             case false => query
@@ -66,7 +69,7 @@ object SubQueryToAlgebra
         subQuery: IQL_QUERY_1[Select, Domain, GroupDomain, GroupRange, Range],
         context: Rep[Query[ContextDomain]],
         contextParameter: Rep[ContextDomain]
-    ): Rep[Query[ContextDomain]] =
+    )(implicit env : QueryEnvironment): Rep[Query[ContextDomain]] =
         subQuery match {
             // This clause is definitely not correlated to the context
             case FromClause1 (relation, SelectProjectionClause (_, asDistinct)) =>
@@ -85,19 +88,19 @@ object SubQueryToAlgebra
                 applyDistinct (
                     projection (
                         selection (
-                        crossProduct (context, relation),
-                        {
-                            val ctxFun = dynamicLambda (contextParameter,
-                                dynamicLambda (parameter (predicate), body (predicate)))
-                            fun (
-                                // TODO: Works, but why does compiler need GroupRange with Domain?
-                                (ctx: Rep[ContextDomain], subDom: Rep[GroupRange with Domain]) => {
-                                    val fun1 = ctxFun (ctx)
-                                    val fun2 = fun1 (subDom)
-                                    fun2
-                                }
-                            )
-                        }
+                            crossProduct (context, relation),
+                            {
+                                val ctxFun = dynamicLambda (contextParameter,
+                                    dynamicLambda (parameter (predicate), body (predicate)))
+                                fun (
+                                    // TODO: Works, but why does compiler need GroupRange with Domain?
+                                    (ctx: Rep[ContextDomain], subDom: Rep[GroupRange with Domain]) => {
+                                        val fun1 = ctxFun (ctx)
+                                        val fun2 = fun1 (subDom)
+                                        fun2
+                                    }
+                                )
+                            }
                         ),
                         (ctx: Rep[ContextDomain], subDom: Rep[Select]) => ctx
                     ),
@@ -117,7 +120,7 @@ object SubQueryToAlgebra
     ] (
         subQuery: IQL_QUERY_2[Select, DomainA, DomainB, GroupDomainA, GroupDomainB, GroupRange, Range],
         context: Rep[Query[ContextDomain]]
-    ): Rep[Query[Range]] =
+    )(implicit env : QueryEnvironment): Rep[Query[Range]] =
         subQuery match {
             case _ => throw new UnsupportedOperationException
         }

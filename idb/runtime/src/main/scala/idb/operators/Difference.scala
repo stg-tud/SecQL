@@ -1,6 +1,8 @@
 package idb.operators
 
-import idb.{View, Relation}
+import java.io.PrintStream
+
+import idb.{Relation, View}
 
 
 /**
@@ -22,7 +24,14 @@ trait Difference[Domain]
 
     def right: Relation[Domain]
 
-	override protected def children = List (left, right)
+	override def children = List (left, right)
+
+	override protected[idb] def printInternal(out : PrintStream)(implicit prefix: String = " "): Unit = {
+		out.println(prefix + s"Difference(")
+		printNested(out, left)
+		printNested(out, right)
+		out.println(prefix + ")")
+    }
 
 }
 

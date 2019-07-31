@@ -34,6 +34,7 @@ package idb.algebra.opt
 
 import idb.algebra.ir.RelationalAlgebraIRBasicOperators
 import idb.lms.extensions.FunctionUtils
+import idb.query.QueryEnvironment
 import scala.virtualization.lms.common.{EqualExp, TupledFunctionsExp}
 import idb.lms.extensions.functions.FunctionsExpDynamicLambdaAlphaEquivalence
 
@@ -53,15 +54,20 @@ trait RelationalAlgebraIROptCreateJoin
     override def selection[Domain: Manifest] (
         relation: Rep[Query[Domain]],
         function: Rep[Domain => Boolean]
-    ): Rep[Query[Domain]] = {
+    )(implicit env : QueryEnvironment): Rep[Query[Domain]] = {
         (relation match {
             // rewrite a selection with a function of the form (a, b) => exprOf(a) == exprOf(b) into a join
-            case Def (CrossProduct (a, b)) if isDisjunctiveParameterEquality (function) =>
-                equiJoin (a, b, List (createEqualityFunctions (function)))(domainOf(a), domainOf(b))
+			case Def(c@CrossProduct(a, b)) if isDisjunctiveParameterEquality(function)(c.mDomA, c.mDomB) => {
+					equiJoin(a, b, scala.List(createEqualityFunctions(function)(c.mDomA, c.mDomB)))(c.mDomA, c.mDomB, env)
+			}
 
-            // add further equality tests to the join
-            case Def (EquiJoin (a, b, xs)) if isDisjunctiveParameterEquality (function) =>
-                equiJoin (a, b, xs ::: List(createEqualityFunctions (function)) )(domainOf(a), domainOf(b))
+			// add further equality tests to the join
+			case Def(c@EquiJoin(a, b, xs)) if isDisjunctiveParameterEquality(function)(c.mDomA, c.mDomB) =>
+				equiJoin(
+					a,
+					b,
+					xs.:::(scala.List(createEqualityFunctions(function)(c.mDomA, c.mDomB)))
+				)(c.mDomA, c.mDomB, env)
 
             case _ => super.selection (relation, function)
         }).asInstanceOf[Rep[Query[Domain]]]
@@ -69,30 +75,72 @@ trait RelationalAlgebraIROptCreateJoin
 
 
 
-    def createEqualityFunctions[A, B] (function: Exp[A => Boolean]): (Exp[Any => Boolean], Exp[Any => Boolean]) = {
-        val params = parameters (function)
-        if (params.size != 2) {
-            throw new IllegalArgumentException ("Expected two parameters for function " + function)
-        }
-        body (function) match {
-            case Def (Equal (lhs: Exp[Boolean@unchecked], rhs: Exp[Boolean@unchecked])) => {
-                val usedByLeft = findSyms (lhs)(params.toSet)
-                val usedByRight = findSyms (rhs)(params.toSet)
-                if (usedByLeft.size != 1 || usedByRight.size != 1 && usedByLeft == usedByRight) {
-                    throw new IllegalArgumentException (
-                        "Expected equality that separates left and right parameter in function " + function)
-                }
-                val x = params (0)
-                val y = params (1)
-                if (usedByLeft == Set (x)) {
-                    (dynamicLambda (x, lhs), dynamicLambda (y, rhs))
-                }
-                else
-                {
-                    (dynamicLambda (x, rhs), dynamicLambda (y, lhs))
-                }
-            }
-            case _ => throw new IllegalArgumentException ("Expected equality in function " + function)
-        }
-    }
+
+	def createEqualityFunctions[A,B,C](function: Exp[A => Boolean])(implicit mDomX : Manifest[B], mDomY : Manifest[C]): (Exp[B => Any], Exp[C => Any]) = {
+		val params = parameters(function)
+		val b = body(function)
+
+		if (params.size == 1 && isTuple2Manifest(params.head.tp)) {
+			val t : Exp[(B, C)] = params.head.asInstanceOf[Exp[(B,C)]]
+			val tupledParams : Set[Exp[Any]] = scala.collection.immutable.Set(t._1, t._2)
+
+			b match {
+				case Def(exp@Equal(lhs, rhs)) => {
+					val usedByLeft = findSyms(lhs)(tupledParams)
+					val usedByRight = findSyms(rhs)(tupledParams)
+					if (usedByLeft.size != 1 || usedByRight.size != 1 && usedByLeft == usedByRight) {
+						throw new java.lang.IllegalArgumentException(
+							"Expected equality that separates left and right parameter in function " + function.toString)
+					}
+
+					val l = tupledParams.toList
+
+					val x = l(0).asInstanceOf[Exp[B]]
+					val y = l(1).asInstanceOf[Exp[C]]
+					if (usedByLeft == Set(x)) {
+						//Add manifest[Any] manually to avoid having manifest[Nothing]
+						val f1 = dynamicLambda[B, Any](x, lhs, x.tp, manifest[Any])
+						val f2 = dynamicLambda[C, Any](y, rhs, y.tp, manifest[Any])
+						return (f1, f2)
+					}
+					else {
+						//Add manifest[Any] manually to avoid having manifest[Nothing]
+						val f1 = dynamicLambda[B, Any](x, rhs, x.tp, manifest[Any])
+						val f2 = dynamicLambda[C, Any](y, lhs, y.tp, manifest[Any])
+						return (f1, f2)
+					}
+				}
+				case _ => throw new java.lang.IllegalArgumentException("Expected equality in function " + function.toString)
+			}
+		} else if (params.size == 2) {
+			 b match {
+				case Def(Equal(lhs: Exp[Boolean@unchecked], rhs: Exp[Boolean@unchecked])) => {
+					val usedByLeft = findSyms(lhs)(params.toSet)
+					val usedByRight = findSyms(rhs)(params.toSet)
+					if (usedByLeft.size != 1 || usedByRight.size != 1 && usedByLeft == usedByRight) {
+						throw new java.lang.IllegalArgumentException(
+							"Expected equality that separates left and right parameter in function " + function.toString)
+					}
+					val x = params(0).asInstanceOf[Exp[B]]
+					val y = params(1).asInstanceOf[Exp[C]]
+					if (usedByLeft == Set(x)) {
+						//Add manifest[Any] manually to avoid having manifest[Nothing]
+						val f1 = dynamicLambda[B, Any](x, lhs, x.tp, manifest[Any])
+						val f2 = dynamicLambda[C, Any](y, rhs, y.tp, manifest[Any])
+						return (f1, f2)
+					}
+					else {
+						//Add manifest[Any] manually to avoid having manifest[Nothing]
+						val f1 = dynamicLambda[B, Any](x, rhs, x.tp, manifest[Any])
+						val f2 = dynamicLambda[C, Any](y, lhs, y.tp, manifest[Any])
+						return (f1, f2)
+					}
+				}
+				case _ => throw new java.lang.IllegalArgumentException("Expected equality in function " + function.toString)
+			}
+		}
+
+		throw new java.lang.IllegalArgumentException("Expected two parameters or Tuple2 parameter for function " + function.toString)
+
+	}
 }

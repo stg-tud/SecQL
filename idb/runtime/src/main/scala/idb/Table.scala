@@ -32,6 +32,8 @@
  */
 package idb
 
+import java.io.PrintStream
+
 import idb.observer.NotifyObservers
 
 /**
@@ -98,11 +100,7 @@ trait Table[V]
   }
 
 
-  def endTransaction() {
-    notify_endTransaction()
-  }
-
-  def foreach[T](f: (V) => T) {}
+  override def foreach[T](f: (V) => T) {}
 
   def foreachWithCount[T](f: (V, Int) => T) {}
 
@@ -112,7 +110,8 @@ trait Table[V]
 
   def size: Int = 0
 
-  def lazyInitialize() {}
+  override def children() = Nil
 
-  def children = Nil
+  override protected[idb] def printInternal(out : PrintStream)(implicit prefix: String = " "): Unit =
+    out.println(prefix + this)
 }

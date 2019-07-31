@@ -42,9 +42,10 @@ import idb.observer.{NotifyObservers, Observable, Observer}
  * The set projection removes duplicates from the results set.
  * We use the same Multiset as in Bag, but directly increment/decrement counts
  */
-class DuplicateEliminationView[Domain](val relation: Relation[Domain],
-									  override val isSet : Boolean)
-	extends DuplicateElimination[Domain]
+case class DuplicateEliminationView[Domain](
+	relation: Relation[Domain],
+	isSet : Boolean
+) extends DuplicateElimination[Domain]
 	with Observer[Domain]
 	with NotifyObservers[Domain] {
 
@@ -54,12 +55,11 @@ class DuplicateEliminationView[Domain](val relation: Relation[Domain],
 
 	private val data: HashMultiset[Domain] = HashMultiset.create[Domain]()
 
-	lazyInitialize()
 
-
-	override def endTransaction() {
-		notify_endTransaction()
+	override protected[idb] def resetInternal(): Unit = {
+		data.clear()
 	}
+
 
 	override protected def childObservers(o: Observable[_]): Seq[Observer[_]] = {
 		if (o == relation) {
@@ -68,11 +68,6 @@ class DuplicateEliminationView[Domain](val relation: Relation[Domain],
 		Nil
 	}
 
-	def lazyInitialize() {
-		relation.foreach(
-			t => data.add(t)
-		)
-	}
 
 	def foreach[U](f: Domain => U) {
 		val it = data.elementSet().iterator()
@@ -157,14 +152,14 @@ class DuplicateEliminationView[Domain](val relation: Relation[Domain],
 		}
 	}
 
-  def addedAll(vs: Seq[Domain]) {
-    val added = vs filter (add_element(_))
-    notify_addedAll(added)
-  }
+	def addedAll(vs: Seq[Domain]) {
+		val added = vs filter (add_element(_))
+		notify_addedAll(added)
+	}
 
-  def removedAll(vs: Seq[Domain]) {
-    val removed = vs filter (remove_element(_))
-    notify_removedAll(removed)
-  }
+	def removedAll(vs: Seq[Domain]) {
+		val removed = vs filter (remove_element(_))
+		notify_removedAll(removed)
+	}
 
 }

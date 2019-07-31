@@ -55,9 +55,7 @@ class DifferenceOnMaterializedView[Domain](val left: MaterializedView[Domain],
 
     right addObserver RightObserver
 
-	override protected def lazyInitialize() {}
-
-    override protected def childObservers(o: Observable[_]): Seq[Observer[_]] = {
+	override protected def childObservers(o: Observable[_]): Seq[Observer[_]] = {
         if (o == left) {
             return List (LeftObserver)
         }
@@ -67,11 +65,12 @@ class DifferenceOnMaterializedView[Domain](val left: MaterializedView[Domain],
         Nil
     }
 
+	override protected[idb] def resetInternal(): Unit = ???
 
-    /**
+	/**
      * Applies f to all elements of the view.
      */
-    def foreach[T](f: (Domain) => T) {
+    override def foreach[T](f: (Domain) => T) {
         left.foreachWithCount (
             (v: Domain, leftCount: Int) =>
             {
@@ -88,10 +87,6 @@ class DifferenceOnMaterializedView[Domain](val left: MaterializedView[Domain],
 
     object LeftObserver extends Observer[Domain]
     {
-
-        override def endTransaction() {
-            notify_endTransaction ()
-        }
 
         def updated(oldV: Domain, newV: Domain) {
             // we are notified after the update, hence the left will be updated to newV
@@ -143,10 +138,6 @@ class DifferenceOnMaterializedView[Domain](val left: MaterializedView[Domain],
 
     object RightObserver extends Observer[Domain]
     {
-
-        override def endTransaction() {
-            notify_endTransaction ()
-        }
 
         // update operations on right relation
         def updated(oldV: Domain, newV: Domain) {

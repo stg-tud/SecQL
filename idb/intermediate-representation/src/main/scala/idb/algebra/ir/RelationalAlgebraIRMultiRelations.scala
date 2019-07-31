@@ -33,6 +33,7 @@
 package idb.algebra.ir
 
 import idb.algebra.base.RelationalAlgebraMultiRelations
+import idb.query.QueryEnvironment
 import scala.virtualization.lms.common.{FunctionsExp, TupleOpsExp}
 
 
@@ -53,7 +54,7 @@ trait RelationalAlgebraIRMultiRelations
         relationA: Rep[Query[DomainA]],
         relationB: Rep[Query[DomainB]],
         relationC: Rep[Query[DomainC]]
-    ): Rep[Query[(DomainA, DomainB, DomainC)]] =
+    )(implicit env : QueryEnvironment): Rep[Query[(DomainA, DomainB, DomainC)]] =
         projection (
             crossProduct (
                 crossProduct (relationA, relationB),
@@ -67,7 +68,7 @@ trait RelationalAlgebraIRMultiRelations
         relationB: Rep[Query[DomainB]],
         relationC: Rep[Query[DomainC]],
         relationD: Rep[Query[DomainD]]
-    ): Rep[Query[(DomainA, DomainB, DomainC, DomainD)]] =
+    )(implicit env : QueryEnvironment): Rep[Query[(DomainA, DomainB, DomainC, DomainD)]] =
         projection (
             crossProduct (
                 crossProduct(relationA, relationB, relationC),
@@ -83,7 +84,7 @@ trait RelationalAlgebraIRMultiRelations
         relationC: Rep[Query[DomainC]],
         relationD: Rep[Query[DomainD]],
         relationE: Rep[Query[DomainE]]
-    ): Rep[Query[(DomainA, DomainB, DomainC, DomainD, DomainE)]] =
+    )(implicit env : QueryEnvironment): Rep[Query[(DomainA, DomainB, DomainC, DomainD, DomainE)]] =
         projection (
             crossProduct (
                 crossProduct(relationA, relationB, relationC, relationD),

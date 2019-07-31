@@ -32,7 +32,7 @@
  */
 package idb.observer
 
-import collection.mutable
+import scala.collection.mutable
 
 
 /**
@@ -47,11 +47,11 @@ import collection.mutable
 trait Observable[+V]
 {
 
-    protected[observer] var observers: mutable.HashSet[Observer[Any]] = mutable.HashSet.empty
+    protected[observer] val observers: mutable.HashSet[Observer[Any]] = mutable.HashSet.empty
 
     def addObserver[U >: V] (o: Observer[U]) {
         // sanity check that the assumption of never adding the same observer twice holds
-        assert (!observers.contains (o.asInstanceOf[Observer[Any]]))
+//        assert (!observers.contains (o.asInstanceOf[Observer[Any]]))
         observers.add (o.asInstanceOf[Observer[Any]])
     }
 
@@ -60,12 +60,10 @@ trait Observable[+V]
     }
 
     def clearObservers () {
-        observers = mutable.HashSet.empty
+        observers.clear()
     }
 
-    def hasObservers = {
-        !observers.isEmpty
-    }
+    def hasObservers = observers.nonEmpty
 
     /**
      * remove all observers
@@ -86,7 +84,7 @@ trait Observable[+V]
     /**
      * Returns the observed children, to allow a top down removal of observers
      */
-    protected def children: Seq[Observable[_]]
+    def children: Seq[Observable[_]]
 
     def descendants: Seq[Observable[_]] = {
         (for (child <- children) yield {
