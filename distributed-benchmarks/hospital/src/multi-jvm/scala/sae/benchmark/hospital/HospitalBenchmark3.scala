@@ -24,9 +24,9 @@ class HospitalBenchmark3 extends MultiNodeSpec(HospitalMultiNodeConfig)
 	implicit val env: QueryEnvironment = QueryEnvironment.create(
 		system,
 		Map(
-			personHost -> (0, Set("red")),
-			patientHost -> (0, Set("red", "green", "purple")),
-			knowledgeHost -> (0, Set("purple")),
+			personHost -> (1, Set("red")),
+			patientHost -> (1, Set("red", "green", "purple")),
+			knowledgeHost -> (1, Set("purple")),
 			clientHost -> (1, Set("white", "red", "green", "purple"))
 		)
 	)
@@ -50,7 +50,10 @@ class HospitalBenchmark3 extends MultiNodeSpec(HospitalMultiNodeConfig)
 				SELECT DISTINCT (
 					(person: Rep[PersonType], patientSymptom: Rep[(PatientType, String)], knowledgeData: Rep[KnowledgeType]) =>
 						(person.personId, person.name, knowledgeData.diagnosis)
-					) FROM(RECLASS(personDB, Taint("white")), UNNEST(RECLASS(patientDB, Taint("white")), (x: Rep[PatientType]) => x.symptoms), RECLASS(knowledgeDB, Taint("white"))
+					) FROM(
+						RECLASS(personDB, Taint("white")),
+						UNNEST(RECLASS(patientDB, Taint("white")), (x: Rep[PatientType]) => x.symptoms),
+						RECLASS(knowledgeDB, Taint("white"))
 				) WHERE (
 					(person: Rep[PersonType], patientSymptom: Rep[(PatientType, String)], knowledgeData: Rep[KnowledgeType]) =>
 						person.personId == patientSymptom._1.personId AND
