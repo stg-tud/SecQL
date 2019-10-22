@@ -2,24 +2,26 @@
 
 1. Abstract
 2. Tools
-3. Install guide for i3Ql
+3. Install guide for SecQL
 4. Package Overview
 
 # Abstract	
 	
-An incremental computation updates its result based on a change to its input, which is often an order of magnitude faster than a recomputation from scratch. In particular, incrementalization can make expensive computations feasible for settings that require short feedback cycles, such as interactive systems, IDEs, or (soft) real-time systems. 
-	
-We presented i3QL, a general-purpose programming language for specifying incremental computations. i3QL provides a declarative SQL-like syntax and is based on incremental versions of operators from relational algebra, enriched with support for general recursion. We integrated i3QL into Scala as a library, which enables programmers to use regular Scala code for non-incremental subcomputations of an i3QL query and to easily integrate incremental computations into larger software projects. To improve performance, i3QL optimizes user-defined queries by applying algebraic laws and partial evaluation.
+Distributed query processing is an effective means for processing large amounts of data. To abstract from the technicalities of distributed systems, algorithms for operator placement automatically distribute sequential data queries over the available processing units. However, current algorithms for operator placement focus on performance and ignore privacy concerns that arise when handling sensitive data.
+
+We present a new methodology for privacy-aware operator placement that both prevents leakage of sensitive information and improves performance. Crucially, our approach is based on an information-flow type system for data queries to reason about the sensitivity of query subcomputations. Our solution unfolds in two phases. First, placement space reduction generates deployment candidates based on privacy constraints using a syntax-directed transformation driven by the information-flow type system. Second, constraint solving selects the best placement among the candidates based on a cost model that maximizes performance. We verify that our algorithm preserves the sequential behavior of queries and prevents leakage of sensitive data. We implemented the type system and placement algorithm for a new query language SecQL and demonstrate significant performance improvements in benchmarks.
+
+For more detailed information, read our OOPSLA19 paper: https://doi.org/10.1145/3360593
 	
 # Tools
 	
-We implemented i3Ql in Scala (http://www.scala-lang.org). Scala is an object-oriented, functional programming language that run on the Java Virtual Machine (JVM). i3Ql queries can be directly used in your Scala code.
+We implemented SecQL in Scala (http://www.scala-lang.org). Scala is an object-oriented, functional programming language that run on the Java Virtual Machine (JVM). i3Ql queries can be directly used in your Scala code.
 
-We use Lightweight Modular Staging (LMS, http://scala-lms.github.io) in order to compile our queries. LMS allows us to generate tree representations of functions and queries. This intermediate representation is used to optimize our queries. Further, LMS can produce Scala code out of these representations and compile the code during runtime. 
+SecQL is based on i3QL, which uses Lightweight Modular Staging (LMS, http://scala-lms.github.io) in order to compile our queries. LMS allows us to generate tree representations of functions and queries. This intermediate representation is used to optimize our queries. Further, LMS can produce Scala code out of these representations and compile the code during runtime.
 
-In order to built our project we use the SBT (http://www.scala-sbt.org), a build tool for Scala projects. 
+In order to built our project we use the SBT (http://www.scala-sbt.org), a build tool for Scala projects.
 	
-# Install guide for i3QL
+# Install guide for SecQL
 
 In order to install the project, you have to follow these steps:
 
@@ -27,29 +29,33 @@ In order to install the project, you have to follow these steps:
 
 2. Download and build the LMS project
 
-		$ git clone https://github.com/TiarkRompf/virtualization-lms-core.git
+	$ git clone https://github.com/DSoko2/virtualization-lms-core.git
+	
+	Checkout the tag "i3QL-compatible-scala2.11". Please note that is is required for SecQL to operate, since it is unfortunately not compatible with recent LMS versions.
 
-	Go to the root directory and install the project using SBT. You need to be on the branch 'develop'
+	Go to the root directory and install the project using SBT. You need to be on the tag "i3QL-compatible-scala2.11"
 
 		$ cd virtualization-lms-core
 		$ git checkout develop
 		$ sbt publish-local
+	
+	Note that there is also a pre-build docker image availble on dockerhub, in which the correct LMS version is installed and ready to use: https://hub.docker.com/r/dsoko2/i3ql-lms
 
-3. Download and build the i3Ql project.
+3. Download and build the SecQL project.
 
-		$ git clone https://github.com/seba--/i3QL.git
+		$ git clone https://github.com/stg-tud/SecQL.git
 
 	Go to the root directory and install the project using SBT. Currently you need to be on the branch 'master' (the default one).
 
-		$ cd i3Ql
+		$ cd SecQL
 		$ git checkout master
 		$ sbt publish-local
 	
-## Using i3Ql in your own project
+## Using SecQL in your own project
 	
 1. Add the dependencies to your SBT build file
 
-	In order to use i3Ql for your own project you have to add the following library dependencies to your SBT build:		
+	In order to use SecQL for your own project you have to add the following library dependencies to your SBT build:		
 			
 		libraryDependencies in ThisBuild ++= Seq(
 			"de.tud.cs.st" %% "idb-syntax-iql" % "latest.integration",
@@ -61,37 +67,9 @@ In order to install the project, you have to follow these steps:
 		scalaVersion in ThisBuild := "2.10.2"
 		scalaOrganization in ThisBuild := "org.scala-lang.virtualized"
 		
-2. Import i3Ql in your Scala project
-
-	If you want to write a query, you have to write the following import statements
+2. Use SecQL
 	
-		import idb.syntax.iql._
-		import idb.syntax.iql.IR._
-	
-	In order to use tables you also have to import them
-	
-		import idb.SetTable
-		
-3. Use i3Ql
-
-	Now, you can use i3Ql.
-
-	Example:
-
-		def foo() {
-			import idb.syntax.iql._
-			import idb.syntax.iql.IR._
-			import idb.SetTable
-
-			//Create a new table. Note, that this has changed slightly from the paper.
-			val table : Table[Int] = SetTable.empty[Int]()
-
-			//Write your query.
-			val query = SELECT (*) FROM table	
-
-			//Add elements to the table.
-			table += 1
-		}
+	Just have a look at the distributed benchmarks, which can be found under ditributed-benchmarks/{hospital,company}. Also distributed-benchmarks/README.md might provide some useful information.
 
 # Package Overview
 
@@ -108,11 +86,8 @@ Following are the packages of the i3Ql project in this repository:
 	* __idb-integration-test__: End-to-end user tests of queries
 	* __idb-schema-examples__: University database example that is used for testing
 		
-* __demo__: Contains several demo projects for standard i3QL. Please refer to [it's README](demo/README.md)
-
 * __distributed-benchmarks__: Benchmarks for distributed i3QL and their shared implementation base
-	* __company-benchmark__: Company case study
-	* __hospital-benchmark__: Hospital case study
-	* __tpch-benchmark__: TPC-H benchmark based benchmark and demo
+	* __company__: Company case study
+	* __hospital__: Hospital case study
 	* _aws-setup_: Scripts for setup and execution of the benchmark on Amazon Web Service
 	* _evaluation_: Scripts and templates for the evaluation of benchmark executions
